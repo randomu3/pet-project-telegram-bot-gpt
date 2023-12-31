@@ -4,11 +4,13 @@
 import requests
 import logging
 from os import getenv
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 class HackerGPTAPI:
     API_URL = 'https://www.hackergpt.co/api/chat/completions'
     API_KEY = getenv('HACKERGPT_API_KEY')
-    TIMEOUT = 10  # Timeout for API requests
+    TIMEOUT = 20  # Timeout for API requests
 
     def __init__(self):
         if not self.API_KEY:
@@ -23,10 +25,12 @@ class HackerGPTAPI:
             'model': 'hackergpt',
             'messages': message_history
         }
+        session = requests.Session()
+        retries = Retry(total=5, backoff_factor=1, status_forcelist=[502, 503, 504])
+        session.mount('https://', HTTPAdapter(max_retries=retries))
         try:
-            response = requests.post(self.API_URL, json=data, headers=headers, timeout=self.TIMEOUT)
+            response = session.post(self.API_URL, json=data, headers=headers, timeout=self.TIMEOUT)
             response.raise_for_status()
-            # Directly return the response text as the API returns a string
             return response.text
         except requests.exceptions.RequestException as e:
             logging.error(f"API Request error: {e}")

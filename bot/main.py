@@ -47,7 +47,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         process_user_message(update, context)
     except Exception as e:
         logging.error(f"Error processing message: {e}")
-        update.message.reply_text(ERROR_MESSAGE)
+        update.message.reply_text("Произошла ошибка при связи с нашим сервером. Пожалуйста, попробуйте позже.")
 
 # Process user message
 def process_user_message(update: Update, context: CallbackContext) -> None:

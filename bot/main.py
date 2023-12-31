@@ -1,3 +1,4 @@
+
 # bot/main.py
 
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
@@ -8,88 +9,91 @@ from bot.hackergpt_api import HackerGPTAPI
 from dotenv import load_dotenv
 from os import getenv, path
 import os
+import logging
 
-# Явно указываем путь к файлу .env
+# Set up logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+# Load environment variables explicitly
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
-# Получение токенов из переменных окружения
+# Get tokens from environment variables
 TELEGRAM_TOKEN = getenv('TELEGRAM_TOKEN')
 WELCOME_MESSAGE = 'Привет! Я BlackGPT бот. Задайте мне вопрос.'
 ERROR_MESSAGE = 'Извините, возникла проблема при обработке вашего запроса.'
 
-# Создание экземпляров классов для работы с базой данных и API
+# Create instances for database and API interactions
 db_manager = DatabaseManager()
 hackergpt_api = HackerGPTAPI()
 
-# Функция для создания клавиатуры
+# Function to create a keyboard
 def get_base_reply_markup():
     button = KeyboardButton('Начать новый чат')
     return ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=False)
 
-# Обработчик команды /start
+# Command handler for /start
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(WELCOME_MESSAGE, reply_markup=get_base_reply_markup())
 
-# Обработчик нажатия на кнопку "Начать новый чат"
+# Handler for "Начать новый чат" button
 def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
-    # Сброс истории сообщений пользователя
     context.user_data['message_history'] = []
     update.message.reply_text("Новый чат начат!")
 
-# Обработчик текстовых сообщений
+# Handler for text messages
 def handle_message(update: Update, context: CallbackContext) -> None:
+    try:
+        process_user_message(update, context)
+    except Exception as e:
+        logging.error(f"Error processing message: {e}")
+        update.message.reply_text(ERROR_MESSAGE)
+
+# Process user message
+def process_user_message(update: Update, context: CallbackContext) -> None:
     user_message = update.message.text
     user = update.message.from_user
 
-    # Добавление или обновление пользователя в базе данных
+    # Update user in database
     db_manager.add_or_update_user(user.id, user.username, user.first_name, user.last_name)
 
-    # Создание или обновление истории сообщений пользователя
+    # Update message history
+    update_message_history(context, 'user', user_message)
+
+    # Get response from API
+    response_text = hackergpt_api.send_message(context.user_data['message_history'])
+    update_message_history(context, 'assistant', response_text)
+
+    # Record query and response in database
+    db_manager.add_query(user.id, user_message, response_text)
+
+    # Send response to user
+    update.message.reply_text(response_text)
+
+# Update message history
+def update_message_history(context: CallbackContext, role: str, message: str) -> None:
     message_history = context.user_data.get('message_history', [])
-    message_history.append({'role': 'user', 'content': user_message})
-
-    # Получение ответа от API BlackGPT
-    try:
-        response_text = hackergpt_api.send_message(message_history)
-        message_history.append({'role': 'assistant', 'content': response_text})
-
-        # Запись запроса и ответа в базу данных
-        db_manager.add_query(user.id, user_message, response_text)
-
-        # Отправка текста ответа пользователю
-        update.message.reply_text(response_text)
-
-    except TimedOut as e:
-        # Обработка ошибки таймаута
-        print(f"Ошибка таймаута при отправке сообщения: {e}")
-        update.message.reply_text("Произошла ошибка сети, пожалуйста, попробуйте еще раз.")
-    except Exception as e:
-        # Обработка других исключений
-        print(f"Ошибка при запросе к API BlackGPT: {e}")
-        update.message.reply_text(ERROR_MESSAGE)
-
-    # Обновление истории сообщений в контексте пользователя
+    message_history.append({'role': role, 'content': message})
     context.user_data['message_history'] = message_history
 
-# Главная функция для настройки и запуска бота
+# Main function to set up and start the bot
 def main() -> None:
     request_kwargs = {
-        'read_timeout': 10,  # Увеличьте read_timeout, если необходимо
-        'connect_timeout': 10  # Увеличьте connect_timeout, если необходимо
+        'read_timeout': 10,
+        'connect_timeout': 10
     }
     updater = Updater(TELEGRAM_TOKEN, use_context=True, request_kwargs=request_kwargs)
     dispatcher = updater.dispatcher
 
-    # Регистрация обработчиков команд и сообщений
+    # Register command and message handlers
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(MessageHandler(Filters.regex('^Начать новый чат$'), handle_new_chat_button))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
-    # Запуск бота
+    # Start the bot
     updater.start_polling()
     updater.idle()
 
-# Точка входа в программу
+# Program entry point
 if __name__ == '__main__':
     main()

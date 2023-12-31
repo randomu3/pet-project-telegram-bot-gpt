@@ -9,7 +9,6 @@ BlackGPT Telegram Bot is an interactive chatbot designed to handle user queries 
 To set up BlackGPT Telegram Bot on your local environment, follow these steps:
 
 1. **Clone the repository:**
-
    ```bash
    git clone [URL to the BlackGPT Bot repository]
    ```
@@ -17,7 +16,6 @@ To set up BlackGPT Telegram Bot on your local environment, follow these steps:
 2. **Install dependencies:**
    - Ensure Python 3.8 or later is installed on your system.
    - Install required Python packages:
-
      ```bash
      pip install -r requirements.txt
      ```
@@ -25,7 +23,6 @@ To set up BlackGPT Telegram Bot on your local environment, follow these steps:
 3. **Set up environment variables:**
    - Create a `.env` file in the project's root directory.
    - Add the following environment variables:
-
      ```
      TELEGRAM_TOKEN=[Your Telegram Bot Token]
      HACKERGPT_API_KEY=[Your BlackGPT API Key]
@@ -41,13 +38,11 @@ To set up BlackGPT Telegram Bot on your local environment, follow these steps:
 To run the BlackGPT Telegram Bot:
 
 1. **Navigate to the bot's directory:**
-
    ```bash
    cd path/to/blackgpt-bot
    ```
 
 2. **Run the bot:**
-
    ```bash
    python bot/main.py
    ```
@@ -75,3 +70,7 @@ Contributions to the BlackGPT Telegram Bot are welcome. Please ensure to follow 
 ### **License**
 
 Specify your license or leave this section for later inclusion.
+
+---
+
+This README provides a basic structure. Feel free to modify it to better suit your project's needs.

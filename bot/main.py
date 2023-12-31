@@ -64,6 +64,9 @@ def process_user_message(update: Update, context: CallbackContext) -> None:
     # Update message history
     update_message_history(context, 'user', user_message)
 
+    # Send temporary "Generating response..." message
+    temp_message = update.message.reply_text("Генерирую ответ...")
+
     # Get response from API
     response_text = hackergpt_api.send_message(context.user_data['message_history'])
 
@@ -79,8 +82,13 @@ def process_user_message(update: Update, context: CallbackContext) -> None:
     # Record query and response in the database
     db_manager.add_query(user.id, user_message, escaped_response_text)
 
-    # Send formatted and escaped response to the user
-    update.message.reply_text(escaped_response_text, parse_mode='MarkdownV2')
+    # Edit the temporary message with the actual response
+    context.bot.edit_message_text(
+        chat_id=update.message.chat_id,
+        message_id=temp_message.message_id,
+        text=escaped_response_text,
+        parse_mode='MarkdownV2'
+    )
     
 # Update message history
 def update_message_history(context: CallbackContext, role: str, message: str) -> None:
@@ -89,15 +97,23 @@ def update_message_history(context: CallbackContext, role: str, message: str) ->
     context.user_data['message_history'] = message_history
 
 def escape_markdown_v2(text):
-    # Escape Markdown V2 special characters
+    # Escape Markdown V2 special characters outside of code blocks
     escape_chars = '_*[]()~`>#+-=|{}.!'
-    return re.sub(r'([_*\[\]()~`>#\+=\-|{}\.!])', r'\\\1', text)
+    # Split the text into code blocks and the rest
+    parts = re.split(r'(```.*?```)', text, flags=re.DOTALL)
+    escaped_parts = []
+    for part in parts:
+        if part.startswith('```') and part.endswith('```'):
+            # Don't escape characters inside code blocks
+            escaped_parts.append(part)
+        else:
+            # Escape special characters outside code blocks
+            escaped_parts.append(re.sub(r'([_*\[\]()~`>#\+=\-|{}\.!])', r'\\\1', part))
+    return ''.join(escaped_parts)
 
 def format_code_block(response_text):
-    # Pattern to find code blocks with language hints (e.g., ```python)
-    pattern = r'```(\w+)\s+(.+?)\s+```'
-    # Replace found patterns with triple backticks without language hints
-    # and ensure no leading or trailing spaces inside the code block
+    # Find code blocks with language hints and replace them without language hints
+    pattern = r'```(\w+)?\s*(.+?)\s*```'
     formatted_text = re.sub(pattern, r'```\n\2\n```', response_text, flags=re.DOTALL)
     return formatted_text
 

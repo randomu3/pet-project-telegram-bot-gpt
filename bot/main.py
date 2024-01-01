@@ -28,11 +28,10 @@ ERROR_MESSAGE = 'Извините, возникла проблема при об
 db_manager = DatabaseManager()
 hackergpt_api = HackerGPTAPI()
 
-# Функция для создания клавиатуры
-def get_base_reply_markup():
-    new_chat_button = KeyboardButton('Начать новый чат')
-    tips_button = KeyboardButton('Советы по использованию')
-    return ReplyKeyboardMarkup([[new_chat_button], [tips_button]], resize_keyboard=True, one_time_keyboard=False)
+# Функции обработчиков
+# Command handler for /start
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text(WELCOME_MESSAGE, reply_markup=get_base_reply_markup())
 
 def handle_tips_button(update: Update, context: CallbackContext) -> None:
     tips_text = (
@@ -45,10 +44,6 @@ def handle_tips_button(update: Update, context: CallbackContext) -> None:
         '- Для решения сложной проблемы в коде - просите добавить логирование.'
     )
     update.message.reply_text(tips_text, parse_mode='HTML')
-
-# Command handler for /start
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(WELCOME_MESSAGE, reply_markup=get_base_reply_markup())
 
 # Handler for "Начать новый чат" button
 def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
@@ -102,8 +97,13 @@ def process_user_message(update: Update, context: CallbackContext) -> None:
         text=escaped_response_text,
         parse_mode='MarkdownV2'
     )
-    
-# Update message history
+
+# Вспомогательные функции
+def get_base_reply_markup():
+    new_chat_button = KeyboardButton('Начать новый чат')
+    tips_button = KeyboardButton('Советы по использованию')
+    return ReplyKeyboardMarkup([[new_chat_button], [tips_button]], resize_keyboard=True, one_time_keyboard=False)
+
 def update_message_history(context: CallbackContext, role: str, message: str) -> None:
     message_history = context.user_data.get('message_history', [])
     message_history.append({'role': role, 'content': message})

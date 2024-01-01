@@ -1,16 +1,19 @@
 
 # bot/main.py
 
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 from telegram.error import TimedOut
 from bot.database import DatabaseManager
 from bot.hackergpt_api import HackerGPTAPI
 from dotenv import load_dotenv
-from os import getenv, path
+from os import getenv
 import os
 import logging
 import re
+from .freekassa_api import generate_payment_link
+from apscheduler.schedulers.background import BackgroundScheduler
+import pytz
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -20,15 +23,49 @@ dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
 # Get tokens from environment variables
+# Получение переменных окружения
+FREEKASSA_API_KEY = getenv('FREEKASSA_API_KEY')
+MERCHANT_ID = getenv('FREEKASSA_MERCHANT_ID')
+SECRET_KEY_1 = getenv('SECRET_KEY_1')
+SECRET_KEY_2 = getenv('SECRET_KEY_2')
 TELEGRAM_TOKEN = getenv('TELEGRAM_TOKEN')
 WELCOME_MESSAGE = 'Привет! Я BlackGPT бот. Задайте мне вопрос.'
 ERROR_MESSAGE = 'Извините, возникла проблема при обработке вашего запроса.'
+PREMIUM_SUBSCRIPTION_PRICE = 50  # Примерная сумма оплаты за премиум подписку
 
 # Create instances for database and API interactions
 db_manager = DatabaseManager()
 hackergpt_api = HackerGPTAPI()
 
-# Функции обработчиков
+def update_premium_statuses():
+    users = db_manager.get_all_users()
+    for user in users:
+        if user.premium_expiration_date and user.premium_expiration_date < datetime.now():
+            db_manager.update_premium_status(user.id, False, None)
+
+def handle_payment(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
+    update.message.reply_text(
+        "Для приобретения премиум подписки перейдите по ссылке:",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Оплатить", url=payment_link)]
+        ])
+    )
+
+def check_message_limit(user_id, context):
+    user_message_count = context.user_data.get(f'message_count_{user_id}', 0)
+    if user_message_count >= 1:  # Замените 1 на соответствующий лимит
+        payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, MERCHANT_ID, SECRET_KEY_1)
+        return True, payment_link
+    return False, None
+
+def inform_user_about_premium_status(update, context, user_id):
+    if db_manager.check_premium_status(user_id):
+        update.message.reply_text("У вас активна премиум подписка.")
+    else:
+        update.message.reply_text("У вас нет активной премиум подписки.")
+
 # Command handler for /start
 def start(update: Update, context: CallbackContext) -> None:
     update.message.reply_text(WELCOME_MESSAGE, reply_markup=get_base_reply_markup())
@@ -45,13 +82,44 @@ def handle_tips_button(update: Update, context: CallbackContext) -> None:
     )
     update.message.reply_text(tips_text, parse_mode='HTML')
 
-# Handler for "Начать новый чат" button
 def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
-    context.user_data['message_history'] = []
-    update.message.reply_text("Новый чат начат!")
+    user_id = update.message.from_user.id
+    if db_manager.check_premium_status(user_id):
+        context.user_data[f'message_count_{user_id}'] = 0
+        update.message.reply_text("Новый чат начат с премиум доступом!")
+    else:
+        # Проверка лимита сообщений
+        limit_reached, payment_link = check_message_limit(user_id, context)
+        if limit_reached:
+            update.message.reply_text(
+                "Вы достигли лимита сообщений. Приобретите премиум подписку для продолжения.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("Купить премиум", url=payment_link)]
+                ])
+            )
+        else:
+            context.user_data[f'message_count_{user_id}'] = 0
+            update.message.reply_text("Новый чат начат!")
 
-# Handler for text messages
 def handle_message(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    logging.info(f"Handling message from user {user_id}")
+
+    # Initialize message count if it doesn't exist
+    if f'message_count_{user_id}' not in context.user_data:
+        context.user_data[f'message_count_{user_id}'] = 0
+
+    limit_reached, payment_link = check_message_limit(user_id, context)
+    if limit_reached:
+        update.message.reply_text(
+            "Вы достигли лимита сообщений. Приобретите премиум подписку для продолжения.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Купить премиум", url=payment_link)]
+            ])
+        )
+        return
+    # Увеличиваем счетчик сообщений
+    context.user_data[f'message_count_{user_id}'] += 1
     try:
         process_user_message(update, context)
     except Exception as e:
@@ -130,6 +198,10 @@ def format_code_block(response_text):
     formatted_text = re.sub(pattern, r'```\n\2\n```', response_text, flags=re.DOTALL)
     return formatted_text
 
+def check_expired_payment_links():
+    db_manager.expire_premium_subscriptions()
+    logging.info("Expired premium subscriptions have been updated.")
+
 # Main function to set up and start the bot
 def main() -> None:
     request_kwargs = {
@@ -144,6 +216,12 @@ def main() -> None:
     dispatcher.add_handler(MessageHandler(Filters.regex('^Начать новый чат$'), handle_new_chat_button))
     dispatcher.add_handler(MessageHandler(Filters.regex('^Советы по использованию$'), handle_tips_button))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    dispatcher.add_handler(MessageHandler(Filters.regex('^Оплатить$'), handle_payment))
+
+    scheduler = BackgroundScheduler(timezone=pytz.utc)
+    scheduler.add_job(update_premium_statuses, 'interval', hours=24)
+    scheduler.add_job(check_expired_payment_links, 'interval', hours=24)
+    scheduler.start()
 
     # Start the bot
     updater.start_polling()

@@ -28,10 +28,20 @@ ERROR_MESSAGE = 'Извините, возникла проблема при об
 db_manager = DatabaseManager()
 hackergpt_api = HackerGPTAPI()
 
-# Function to create a keyboard
+# Функция для создания клавиатуры
 def get_base_reply_markup():
-    button = KeyboardButton('Начать новый чат')
-    return ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=False)
+    new_chat_button = KeyboardButton('Начать новый чат')
+    tips_button = KeyboardButton('Советы по использованию')
+    return ReplyKeyboardMarkup([[new_chat_button], [tips_button]], resize_keyboard=True, one_time_keyboard=False)
+
+def handle_tips_button(update: Update, context: CallbackContext) -> None:
+    tips_text = (
+        '<b>Советы по использованию чата:</b>\n'
+        'Вы можете задавать вопросы напрямую.\n'
+        'Ответы могут занимать некоторое время, будьте терпеливы.\n'
+        'Используйте четкие и конкретные вопросы для лучших ответов.'
+    )
+    update.message.reply_text(tips_text, parse_mode='HTML')
 
 # Command handler for /start
 def start(update: Update, context: CallbackContext) -> None:
@@ -129,6 +139,7 @@ def main() -> None:
     # Register command and message handlers
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(MessageHandler(Filters.regex('^Начать новый чат$'), handle_new_chat_button))
+    dispatcher.add_handler(MessageHandler(Filters.regex('^Советы по использованию$'), handle_tips_button))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
     # Start the bot

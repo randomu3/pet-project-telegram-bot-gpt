@@ -17,11 +17,14 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     username = Column(String)
-    chat_id = Column(String)  # Add this line for chat ID
+    chat_id = Column(Integer)  # Используйте Integer или BigInteger в зависимости от размера id чата
     first_name = Column(String)
     last_name = Column(String)
-    is_premium = Column(Boolean, default=False)  # Убедитесь, что этот столбец присутствует
-    premium_expiration = Column(DateTime)
+    is_premium = Column(Boolean, default=False)
+    premium_expiration = Column(DateTime)  # Исправлено имя поля
+    last_message_time = Column(DateTime, nullable=True)
+    message_count = Column(Integer, default=0, nullable=True)
+    next_message_available = Column(DateTime, nullable=True)
 
 class Query(Base):
     __tablename__ = 'queries'
@@ -34,8 +37,10 @@ class Query(Base):
 Base.metadata.create_all(engine)
 
 class DatabaseManager:
-    def __init__(self):
+    def __init__(self, max_questions_premium, max_questions_regular):
         self.session = scoped_session(Session)
+        self.max_questions_premium = max_questions_premium
+        self.max_questions_regular = max_questions_regular
     
     def get_user_by_id(self, user_id):
         try:
@@ -57,17 +62,27 @@ class DatabaseManager:
                 # Update their premium status
                 for user in expired_users:
                     user.is_premium = False
-                    user.premium_expiration = None
+                    user.premium_expiration = None  # Имя поля исправлено на premium_expiration
 
                 session.commit()
         except SQLAlchemyError as e:
             logging.error(f"Database error in expire_premium_subscriptions: {e}")
             session.rollback()
 
-    def add_or_update_user(self, user_id, username, first_name, last_name):
+    def add_or_update_user(self, user_id, username, first_name, last_name, chat_id):
         try:
             with self.session() as session:
-                session.merge(User(id=user_id, username=username, first_name=first_name, last_name=last_name))
+                user = session.query(User).filter(User.id == user_id).first()
+                if user:
+                    # Обновляем существующего пользователя
+                    user.username = username
+                    user.first_name = first_name
+                    user.last_name = last_name
+                    user.chat_id = chat_id
+                else:
+                    # Добавляем нового пользователя
+                    new_user = User(id=user_id, username=username, first_name=first_name, last_name=last_name, chat_id=chat_id)
+                    session.add(new_user)
                 session.commit()
         except SQLAlchemyError as e:
             logging.error(f"Database error in add_or_update_user: {e}")
@@ -84,7 +99,8 @@ class DatabaseManager:
             session.rollback()
 
     def __del__(self):
-        self.session.remove()
+        if hasattr(self, 'session'):
+            self.session.remove()
         
     def get_all_users(self):
         try:
@@ -108,7 +124,7 @@ class DatabaseManager:
                 user = session.query(User).filter(User.id == user_id).first()
                 if user:
                     user.is_premium = is_premium
-                    user.premium_expiration = expiration_date  # Ensure this matches the column name
+                    user.premium_expiration = expiration_date  # Убедитесь, что имя поля совпадает
                     session.commit()
         except SQLAlchemyError as e:
             logging.error(f"Database error in update_premium_status: {e}")
@@ -118,12 +134,46 @@ class DatabaseManager:
         try:
             with self.session() as session:
                 user = session.query(User).filter(User.id == user_id).first()
-                if user and user.is_premium and user.premium_expiration_date > datetime.now():
-                    return True
+                if user and user.is_premium:
+                    # Исправлено: использование premium_expiration вместо premium_expiration_date
+                    if user.premium_expiration and user.premium_expiration > datetime.now():
+                        return True
                 return False
         except SQLAlchemyError as e:
             logging.error(f"Database error in check_premium_status: {e}")
             return False
+        
+    def is_within_message_limit(self, user_id):
+        try:
+            with self.session() as session:
+                user = session.query(User).filter(User.id == user_id).first()
+                if not user:
+                    return False
+
+                now = datetime.now()
+                if not user.last_message_time or (now - user.last_message_time).total_seconds() >= 3600:
+                    user.message_count = 0
+                    session.commit()
+
+                if user.is_premium:
+                    return user.message_count < self.max_questions_premium
+                else:
+                    return user.message_count < self.max_questions_regular
+        except SQLAlchemyError as e:
+            logging.error(f"Database error in is_within_message_limit: {e}")
+            return False
+
+    def update_message_count(self, user_id):
+        try:
+            with self.session() as session:
+                user = session.query(User).filter(User.id == user_id).first()
+                if user:
+                    user.message_count += 1
+                    user.last_message_time = datetime.now()
+                    session.commit()
+        except SQLAlchemyError as e:
+            logging.error(f"Database error in update_message_count: {e}")
+            session.rollback()
 
 # db_manager = DatabaseManager()
 # users = db_manager.get_all_users()

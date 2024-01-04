@@ -14,6 +14,8 @@ import re
 from .freekassa_api import generate_payment_link
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
+from datetime import datetime
+from config import MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -26,21 +28,20 @@ load_dotenv(dotenv_path=dotenv_path)
 # Получение переменных окружения
 FREEKASSA_API_KEY = getenv('FREEKASSA_API_KEY')
 MERCHANT_ID = getenv('FREEKASSA_MERCHANT_ID')
-SECRET_KEY_1 = getenv('SECRET_KEY_1')
-SECRET_KEY_2 = getenv('SECRET_KEY_2')
+SECRET_KEY_1 = getenv('FREEKASSA_SECRET_KEY_1')
 TELEGRAM_TOKEN = getenv('TELEGRAM_TOKEN')
 WELCOME_MESSAGE = 'Привет! Я BlackGPT бот. Задайте мне вопрос.'
 ERROR_MESSAGE = 'Извините, возникла проблема при обработке вашего запроса.'
-PREMIUM_SUBSCRIPTION_PRICE = 50  # Примерная сумма оплаты за премиум подписку
+PREMIUM_SUBSCRIPTION_PRICE = 10  # Примерная сумма оплаты за премиум подписку
 
 # Create instances for database and API interactions
-db_manager = DatabaseManager()
+db_manager = DatabaseManager(MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR)
 hackergpt_api = HackerGPTAPI()
 
 def update_premium_statuses():
     users = db_manager.get_all_users()
     for user in users:
-        if user.premium_expiration_date and user.premium_expiration_date < datetime.now():
+        if user.premium_expiration and user.premium_expiration < datetime.now():
             db_manager.update_premium_status(user.id, False, None)
 
 def handle_payment(update: Update, context: CallbackContext) -> None:
@@ -53,12 +54,12 @@ def handle_payment(update: Update, context: CallbackContext) -> None:
         ])
     )
 
-def check_message_limit(user_id, context):
+def check_message_limit(user_id, context, db_manager):
     user_message_count = context.user_data.get(f'message_count_{user_id}', 0)
-    if user_message_count >= 1:  # Замените 1 на соответствующий лимит
-        payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, MERCHANT_ID, SECRET_KEY_1)
-        return True, payment_link
-    return False, None
+    if db_manager.check_premium_status(user_id):
+        return user_message_count >= 10  # Лимит для премиум-пользователей
+    else:
+        return user_message_count >= 1  # Лимит для обычных пользователей
 
 def inform_user_about_premium_status(update, context, user_id):
     if db_manager.check_premium_status(user_id):
@@ -66,9 +67,26 @@ def inform_user_about_premium_status(update, context, user_id):
     else:
         update.message.reply_text("У вас нет активной премиум подписки.")
 
+def status(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    show_user_status(update, context, user_id)
+
 # Command handler for /start
 def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(WELCOME_MESSAGE, reply_markup=get_base_reply_markup())
+    user_id = update.message.from_user.id
+    user_name = update.message.from_user.username
+    first_name = update.message.from_user.first_name
+    last_name = update.message.from_user.last_name
+    chat_id = update.message.chat.id
+
+    # Проверяем, существует ли пользователь в базе данных
+    if not db_manager.get_user_by_id(user_id):
+        db_manager.add_or_update_user(user_id, user_name, first_name, last_name, chat_id)
+
+    # Проверяем, есть ли у пользователя премиум-статус
+    is_premium = db_manager.check_premium_status(user_id)
+    premium_status_message = "У вас активна премиум подписка." if is_premium else "У вас нет активной премиум подписки."
+    update.message.reply_text(f"{WELCOME_MESSAGE}\n{premium_status_message}", reply_markup=get_base_reply_markup())
 
 def handle_tips_button(update: Update, context: CallbackContext) -> None:
     tips_text = (
@@ -86,11 +104,13 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     if db_manager.check_premium_status(user_id):
         context.user_data[f'message_count_{user_id}'] = 0
+        db_manager.update_message_count(user_id)  # Обнуляем счетчик сообщений в базе данных
         update.message.reply_text("Новый чат начат с премиум доступом!")
     else:
         # Проверка лимита сообщений
-        limit_reached, payment_link = check_message_limit(user_id, context)
+        limit_reached = check_message_limit(user_id, context, db_manager)
         if limit_reached:
+            payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, MERCHANT_ID, SECRET_KEY_1)
             update.message.reply_text(
                 "Вы достигли лимита сообщений. Приобретите премиум подписку для продолжения.",
                 reply_markup=InlineKeyboardMarkup([
@@ -100,42 +120,55 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
         else:
             context.user_data[f'message_count_{user_id}'] = 0
             update.message.reply_text("Новый чат начат!")
+            # Добавляем сообщение о возможности покупки премиума
+            payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, MERCHANT_ID, SECRET_KEY_1)
+            update.message.reply_text(
+                "Приобретите премиум подписку, чтобы не ограничивать себя в сообщениях и получить дополнительные преимущества.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("Купить премиум", url=payment_link)]
+                ])
+            )
 
 def handle_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     logging.info(f"Handling message from user {user_id}")
 
-    # Initialize message count if it doesn't exist
+    # Check if message count is initialized for this user, if not, initialize it
     if f'message_count_{user_id}' not in context.user_data:
         context.user_data[f'message_count_{user_id}'] = 0
 
-    limit_reached, payment_link = check_message_limit(user_id, context)
-    if limit_reached:
+    # Check message limit before proceeding
+    if not db_manager.is_within_message_limit(user_id):
+        payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
         update.message.reply_text(
-            "Вы достигли лимита сообщений. Приобретите премиум подписку для продолжения.",
+            "Вы достигли лимита сообщений. Подождите час или приобретите премиум подписку.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Купить премиум", url=payment_link)]
             ])
         )
         return
-    # Увеличиваем счетчик сообщений
+
+    # Increment message count in user data and in the database
     context.user_data[f'message_count_{user_id}'] += 1
+    db_manager.update_message_count(user_id)
+
     try:
         process_user_message(update, context)
     except Exception as e:
-        logging.error(f"Error processing message: {e}")
-        update.message.reply_text("Произошла ошибка при связи с нашим сервером. Пожалуйста, попробуйте позже.")
+        logging.error(f"Error processing message from user {user_id}: {e}")
+        update.message.reply_text(ERROR_MESSAGE)
 
 # Process user message
 def process_user_message(update: Update, context: CallbackContext) -> None:
     user_message = update.message.text
     user = update.message.from_user
+    chat_id = update.message.chat.id  # Используйте chat.id вместо user.chat_id
 
     # Log user's message
     logging.info(f"User {user.id} ({user.username}): {user_message}")
 
     # Update user in database
-    db_manager.add_or_update_user(user.id, user.username, user.first_name, user.last_name)
+    db_manager.add_or_update_user(user.id, user.username, user.first_name, user.last_name, chat_id)  # Используйте chat_id здесь
 
     # Update message history
     update_message_history(context, 'user', user_message)
@@ -202,6 +235,17 @@ def check_expired_payment_links():
     db_manager.expire_premium_subscriptions()
     logging.info("Expired premium subscriptions have been updated.")
 
+def show_user_status(update, context, user_id):
+    try:
+        user = db_manager.get_user_by_id(user_id)
+        if user:
+            remaining_questions = (MAX_QUESTIONS_PER_HOUR_PREMIUM if user.is_premium else MAX_QUESTIONS_PER_HOUR_REGULAR) - user.message_count
+            status_msg = f"📌 Условия использования:\n- Вопросов осталось: {remaining_questions} в этот час\n- Премиум статус: {'Активен' if user.is_premium else 'Не активен'}"
+            update.message.reply_text(status_msg)
+    except Exception as e:
+        logging.error(f"Error in show_user_status: {e}")
+        update.message.reply_text("Произошла ошибка при отображении статуса.")
+
 # Main function to set up and start the bot
 def main() -> None:
     request_kwargs = {
@@ -213,6 +257,7 @@ def main() -> None:
 
     # Register command and message handlers
     dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("status", status))
     dispatcher.add_handler(MessageHandler(Filters.regex('^Начать новый чат$'), handle_new_chat_button))
     dispatcher.add_handler(MessageHandler(Filters.regex('^Советы по использованию$'), handle_tips_button))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))

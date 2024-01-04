@@ -10,12 +10,13 @@ from dotenv import load_dotenv
 import os
 import logging
 import re
-from .freekassa_api import generate_payment_link, get_chat_id_for_user, send_telegram_notification
+from bot.freekassa_api import generate_payment_link, get_chat_id_for_user, send_telegram_notification
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
 from datetime import datetime
 from config import TELEGRAM_BOT_TOKEN, FEEDBACK_COOLDOWN, PREMIUM_SUBSCRIPTION_PRICE,ADMIN_TELEGRAM_ID, WELCOME_MESSAGE, ERROR_MESSAGE, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR, MERCHANT_ID, SECRET_KEY_1
+from bot.utils import send_feedback_to_admin
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -130,12 +131,12 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
                 ])
             )
 
-def process_feedback(user_id, feedback_text):
+def process_feedback(user_id, feedback_text, db_manager):
     try:
         user = db_manager.get_user_by_id(user_id)
         if user:
             # Пример отправки уведомления администратору
-            send_feedback_to_admin(user, feedback_text)
+            send_feedback_to_admin(user, feedback_text, db_manager)
             # Здесь вы также можете добавить логику для сохранения обратной связи в базу данных, если это необходимо
         else:
             logging.error(f"User with ID {user_id} not found in database.")
@@ -163,7 +164,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     if context.user_data.get('awaiting_feedback', False):
         now = datetime.now()
         if user.last_feedback_time is None or (now - user.last_feedback_time).total_seconds() > FEEDBACK_COOLDOWN:
-            process_feedback(user_id, user_message)
+            process_feedback(user_id, user_message, db_manager)  # Исправленный вызов
             user.last_feedback_time = now
             db_manager.session.commit()
             update.message.reply_text("Ваше предложение было отправлено администратору. Спасибо!")
@@ -304,14 +305,6 @@ def handle_feedback_button(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text("Только премиум-пользователи могут отправлять предложения об улучшении.")
 
-# Используйте эту функцию для отправки уведомления администратору с дополнительной информацией о пользователе
-def send_feedback_to_admin(user, feedback):
-    try:
-        message = f"Предложение об улучшении от пользователя {user.username} ({user.first_name} {user.last_name}): {feedback}"
-        send_telegram_notification_to_admin(message)
-    except Exception as e:
-        logging.error(f"Error in send_feedback_to_admin: {e}")
-
 def escape_markdown_v2(text):
     # Escape Markdown V2 special characters outside of code blocks
     escape_chars = '_*[]()~`>#+-=|{}.!'
@@ -334,7 +327,7 @@ def format_code_block(response_text):
     return formatted_text
 
 # Функция для отправки уведомлений в Telegram
-def send_telegram_notification_to_admin(message):
+def send_telegram_notification_to_admin(message, self):
     admin_chat_id = get_chat_id_for_user(ADMIN_TELEGRAM_ID, db_manager)
     if admin_chat_id:
         send_telegram_notification(ADMIN_TELEGRAM_ID, message, db_manager)

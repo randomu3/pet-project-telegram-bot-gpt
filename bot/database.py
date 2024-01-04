@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, 
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
 
+from bot.utils import send_telegram_notification_to_admin
 from datetime import datetime
 import logging
 from config import DATABASE_URL
@@ -74,6 +75,7 @@ class DatabaseManager:
         try:
             with self.session() as session:
                 user = session.query(User).filter(User.id == user_id).first()
+                is_new_user = False
                 if user:
                     # Обновляем существующего пользователя
                     user.username = username
@@ -84,10 +86,19 @@ class DatabaseManager:
                     # Добавляем нового пользователя
                     new_user = User(id=user_id, username=username, first_name=first_name, last_name=last_name, chat_id=chat_id)
                     session.add(new_user)
+                    is_new_user = True
                 session.commit()
+
+                # Отправка уведомления администратору о новом пользователе
+                if is_new_user:
+                    self.notify_admin_new_user(username, user_id)
         except SQLAlchemyError as e:
             logging.error(f"Database error in add_or_update_user: {e}")
             session.rollback()
+
+    def notify_admin_new_user(self, username, user_id):
+        message = f"Новый пользователь зашел в бота: @{username} (ID: {user_id})"
+        send_telegram_notification_to_admin(message, self)
     
     def add_query(self, user_id, text, response):
         try:

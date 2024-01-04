@@ -1,7 +1,14 @@
-2024-01-03 17:53:05,569 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 17:53:06,036 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 17:53:19,254 INFO: Headers: Host: 46f0-46-250-74-10.ngrok-free.app
-Content-Length: 182
+2024-01-04 23:32:12,930 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704393115', 'P_EMAIL': 'Kapkan.07@yandex.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': '644fdbfb80ba4d2159e30b42dc0d5330', 'us_user_id': '968739990'} [in /root/my_telegram_bot_project/web/app.py:56]
+2024-01-04 23:32:12,930 INFO: Validating signature with data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704393115', 'P_EMAIL': 'Kapkan.07@yandex.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': '644fdbfb80ba4d2159e30b42dc0d5330', 'us_user_id': '968739990'} [in /root/my_telegram_bot_project/web/app.py:30]
+2024-01-04 23:32:12,930 INFO: Generated signature string: 11619:10:M{4?+?aT8C).3V1:1704393115 [in /root/my_telegram_bot_project/web/app.py:38]
+2024-01-04 23:32:12,931 INFO: Generated signature: 644fdbfb80ba4d2159e30b42dc0d5330 | Received signature: 644fdbfb80ba4d2159e30b42dc0d5330 [in /root/my_telegram_bot_project/web/app.py:40]
+2024-01-04 23:32:12,936 WARNING: Missing payment status for user_id 968739990. Assuming payment success. [in /root/my_telegram_bot_project/web/app.py:71]
+2024-01-04 23:32:12,936 INFO: Processing successful payment for user 968739990 [in /root/my_telegram_bot_project/web/app.py:101]
+2024-01-04 23:36:06,537 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+2024-01-04 23:56:02,912 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+2024-01-04 23:56:03,220 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+2024-01-04 23:58:59,085 INFO: Headers: Host: 46f0-46-250-74-10.ngrok-free.app
+Content-Length: 191
 Accept: */*
 Content-Type: application/x-www-form-urlencoded
 X-Forwarded-For: 168.119.157.136
@@ -9,77 +16,11 @@ X-Forwarded-Host: 46f0-46-250-74-10.ngrok-free.app
 X-Forwarded-Proto: https
 Accept-Encoding: gzip
 
- [in /root/my_telegram_bot_project/web/app.py:55]
-2024-01-03 17:53:19,256 INFO: Form data: ImmutableMultiDict([('MERCHANT_ID', '11619'), ('AMOUNT', '10'), ('intid', '0'), ('MERCHANT_ORDER_ID', '1704286390'), ('P_EMAIL', 'demiz99@mail.ru'), ('P_PHONE', ''), ('CUR_ID', '1'), ('commission', '0.7'), ('SIGN', 'bced0d95a9b352086eba77a2962a0c98'), ('us_user_id', '188095989')]) [in /root/my_telegram_bot_project/web/app.py:56]
-2024-01-03 17:53:19,256 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704286390', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': 'bced0d95a9b352086eba77a2962a0c98', 'us_user_id': '188095989'} [in /root/my_telegram_bot_project/web/app.py:60]
-2024-01-03 17:53:19,256 INFO: Validating signature with data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704286390', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': 'bced0d95a9b352086eba77a2962a0c98', 'us_user_id': '188095989'} [in /root/my_telegram_bot_project/web/app.py:34]
-2024-01-03 17:53:19,256 INFO: Generated signature string: 11619:10:M{4?+?aT8C).3V1:1704286390 [in /root/my_telegram_bot_project/web/app.py:42]
-2024-01-03 17:53:19,257 INFO: Generated signature: bced0d95a9b352086eba77a2962a0c98 | Received signature: bced0d95a9b352086eba77a2962a0c98 [in /root/my_telegram_bot_project/web/app.py:44]
-2024-01-03 17:53:19,257 WARNING: Missing payment status for user_id 188095989. Assuming payment success. [in /root/my_telegram_bot_project/web/app.py:75]
-2024-01-03 17:53:19,257 INFO: Processing successful payment for user 188095989 [in /root/my_telegram_bot_project/web/app.py:105]
-2024-01-03 17:53:19,266 ERROR: User not found for user_id 188095989 [in /root/my_telegram_bot_project/web/app.py:117]
-2024-01-03 18:04:48,463 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 18:04:48,911 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 18:10:48,320 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 18:10:48,696 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 18:14:54,861 INFO: Headers: Host: 46f0-46-250-74-10.ngrok-free.app
-Content-Length: 182
-Accept: */*
-Content-Type: application/x-www-form-urlencoded
-X-Forwarded-For: 168.119.157.136
-X-Forwarded-Host: 46f0-46-250-74-10.ngrok-free.app
-X-Forwarded-Proto: https
-Accept-Encoding: gzip
-
- [in /root/my_telegram_bot_project/web/app.py:55]
-2024-01-03 18:14:54,863 INFO: Form data: ImmutableMultiDict([('MERCHANT_ID', '11619'), ('AMOUNT', '10'), ('intid', '0'), ('MERCHANT_ORDER_ID', '1704287683'), ('P_EMAIL', 'demiz99@mail.ru'), ('P_PHONE', ''), ('CUR_ID', '1'), ('commission', '0.7'), ('SIGN', 'aff66ff5ac6038557e1d94f398627f82'), ('us_user_id', '188095989')]) [in /root/my_telegram_bot_project/web/app.py:56]
-2024-01-03 18:14:54,863 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704287683', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': 'aff66ff5ac6038557e1d94f398627f82', 'us_user_id': '188095989'} [in /root/my_telegram_bot_project/web/app.py:60]
-2024-01-03 18:14:54,863 INFO: Validating signature with data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704287683', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': 'aff66ff5ac6038557e1d94f398627f82', 'us_user_id': '188095989'} [in /root/my_telegram_bot_project/web/app.py:34]
-2024-01-03 18:14:54,864 INFO: Generated signature string: 11619:10:M{4?+?aT8C).3V1:1704287683 [in /root/my_telegram_bot_project/web/app.py:42]
-2024-01-03 18:14:54,864 INFO: Generated signature: aff66ff5ac6038557e1d94f398627f82 | Received signature: aff66ff5ac6038557e1d94f398627f82 [in /root/my_telegram_bot_project/web/app.py:44]
-2024-01-03 18:14:54,864 WARNING: Missing payment status for user_id 188095989. Assuming payment success. [in /root/my_telegram_bot_project/web/app.py:75]
-2024-01-03 18:14:54,864 INFO: Processing successful payment for user 188095989 [in /root/my_telegram_bot_project/web/app.py:105]
-2024-01-03 20:45:14,026 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 20:45:14,429 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 20:48:09,078 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 20:48:09,432 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 21:31:19,879 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 21:31:20,262 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-03 21:35:01,451 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-04 14:20:03,340 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-04 14:20:03,759 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:26]
-2024-01-04 14:45:40,305 INFO: Headers: Host: 46f0-46-250-74-10.ngrok-free.app
-Content-Length: 183
-Accept: */*
-Content-Type: application/x-www-form-urlencoded
-X-Forwarded-For: 168.119.157.136
-X-Forwarded-Host: 46f0-46-250-74-10.ngrok-free.app
-X-Forwarded-Proto: https
-Accept-Encoding: gzip
-
- [in /root/my_telegram_bot_project/web/app.py:55]
-2024-01-04 14:45:40,307 INFO: Form data: ImmutableMultiDict([('MERCHANT_ID', '11619'), ('AMOUNT', '10'), ('intid', '0'), ('MERCHANT_ORDER_ID', '1704361527'), ('P_EMAIL', 'demiz99@mail.ru'), ('P_PHONE', ''), ('CUR_ID', '1'), ('commission', '0.7'), ('SIGN', '86112f516644e1ba6b081f256e0fb8c0'), ('us_user_id', '5538805929')]) [in /root/my_telegram_bot_project/web/app.py:56]
-2024-01-04 14:45:40,308 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704361527', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': '86112f516644e1ba6b081f256e0fb8c0', 'us_user_id': '5538805929'} [in /root/my_telegram_bot_project/web/app.py:60]
-2024-01-04 14:45:40,308 INFO: Validating signature with data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704361527', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': '86112f516644e1ba6b081f256e0fb8c0', 'us_user_id': '5538805929'} [in /root/my_telegram_bot_project/web/app.py:34]
-2024-01-04 14:45:40,308 INFO: Generated signature string: 11619:10:M{4?+?aT8C).3V1:1704361527 [in /root/my_telegram_bot_project/web/app.py:42]
-2024-01-04 14:45:40,308 INFO: Generated signature: 86112f516644e1ba6b081f256e0fb8c0 | Received signature: 86112f516644e1ba6b081f256e0fb8c0 [in /root/my_telegram_bot_project/web/app.py:44]
-2024-01-04 14:45:40,308 WARNING: Missing payment status for user_id 5538805929. Assuming payment success. [in /root/my_telegram_bot_project/web/app.py:75]
-2024-01-04 14:45:40,309 INFO: Processing successful payment for user 5538805929 [in /root/my_telegram_bot_project/web/app.py:105]
-2024-01-04 15:02:28,861 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:31]
-2024-01-04 15:02:29,238 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:31]
-2024-01-04 15:02:47,813 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:30]
-2024-01-04 15:05:09,089 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:31]
-2024-01-04 15:05:11,606 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 15:05:32,112 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 15:05:32,475 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:26:31,845 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:26:32,172 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:26:46,091 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:26:46,387 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:30:16,734 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:45:41,572 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:45:57,271 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:56:41,417 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 19:56:41,718 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 20:22:28,099 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
-2024-01-04 20:22:28,458 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+ [in /root/my_telegram_bot_project/web/app.py:51]
+2024-01-04 23:58:59,086 INFO: Form data: ImmutableMultiDict([('MERCHANT_ID', '11619'), ('AMOUNT', '10'), ('intid', '0'), ('MERCHANT_ORDER_ID', '1704394711'), ('P_EMAIL', 'Andrei-11062000@mail.ru'), ('P_PHONE', ''), ('CUR_ID', '1'), ('commission', '0.7'), ('SIGN', '8c631887c38f848ae1e702c12ea57bf4'), ('us_user_id', '1174739502')]) [in /root/my_telegram_bot_project/web/app.py:52]
+2024-01-04 23:58:59,087 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704394711', 'P_EMAIL': 'Andrei-11062000@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': '8c631887c38f848ae1e702c12ea57bf4', 'us_user_id': '1174739502'} [in /root/my_telegram_bot_project/web/app.py:56]
+2024-01-04 23:58:59,087 INFO: Validating signature with data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704394711', 'P_EMAIL': 'Andrei-11062000@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': '8c631887c38f848ae1e702c12ea57bf4', 'us_user_id': '1174739502'} [in /root/my_telegram_bot_project/web/app.py:30]
+2024-01-04 23:58:59,087 INFO: Generated signature string: 11619:10:M{4?+?aT8C).3V1:1704394711 [in /root/my_telegram_bot_project/web/app.py:38]
+2024-01-04 23:58:59,087 INFO: Generated signature: 8c631887c38f848ae1e702c12ea57bf4 | Received signature: 8c631887c38f848ae1e702c12ea57bf4 [in /root/my_telegram_bot_project/web/app.py:40]
+2024-01-04 23:58:59,087 WARNING: Missing payment status for user_id 1174739502. Assuming payment success. [in /root/my_telegram_bot_project/web/app.py:71]
+2024-01-04 23:58:59,087 INFO: Processing successful payment for user 1174739502 [in /root/my_telegram_bot_project/web/app.py:101]

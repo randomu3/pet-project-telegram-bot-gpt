@@ -10,11 +10,12 @@ from dotenv import load_dotenv
 import os
 import logging
 import re
-from .freekassa_api import generate_payment_link
+from .freekassa_api import generate_payment_link, get_chat_id_for_user, send_telegram_notification
+import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
 from datetime import datetime
-from config import TELEGRAM_BOT_TOKEN, PREMIUM_SUBSCRIPTION_PRICE, WELCOME_MESSAGE, ERROR_MESSAGE, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR, MERCHANT_ID, SECRET_KEY_1
+from config import TELEGRAM_BOT_TOKEN, FEEDBACK_COOLDOWN, PREMIUM_SUBSCRIPTION_PRICE,ADMIN_TELEGRAM_ID, WELCOME_MESSAGE, ERROR_MESSAGE, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR, MERCHANT_ID, SECRET_KEY_1
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -98,6 +99,10 @@ def handle_tips_button(update: Update, context: CallbackContext) -> None:
 
 def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
+
+    # Логирование нажатия кнопки нового чата
+    logging.info(f"User {user_id} clicked 'New Chat' button")
+
     if db_manager.check_premium_status(user_id):
         context.user_data[f'message_count_{user_id}'] = 0
         db_manager.update_message_count(user_id)  # Обнуляем счетчик сообщений в базе данных
@@ -127,7 +132,58 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
 
 def handle_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
+    user_message = update.message.text
+    user = update.message.from_user  # Получаем объект пользователя из сообщения
 
+    # Добавляем логирование для отладки
+    logging.info(f"Received message from user {user_id}: {user_message}")
+    logging.info(f"User data: {context.user_data}")
+
+    # Проверка на ожидание предложения об улучшении
+    if context.user_data.get('awaiting_feedback', False):
+        # Здесь логика отправки предложения и сброса состояния
+        logging.info(f"User {user_id} is awaiting feedback.")
+        # Проверяем статус премиум подписки пользователя
+        if db_manager.check_premium_status(user_id):
+            logging.info(f"User {user_id} has premium status.")
+            send_feedback_to_admin(user, user_message)
+            update.message.reply_text("Ваше предложение было отправлено администратору. Спасибо!")
+            context.user_data['awaiting_feedback'] = False
+
+            user = db_manager.get_user_by_id(user_id)
+            if user:
+                user.last_feedback_time = datetime.now()  # Обновляем время последнего предложения об улучшении
+                db_manager.session.commit()
+        else:
+            logging.info(f"User {user_id} does not have premium status.")
+            update.message.reply_text("Только премиум-пользователи могут отправлять предложения об улучшении.")
+        context.user_data['awaiting_feedback'] = False  # Сброс после обработки предложения
+        return  # Важно: завершаем функцию здесь, чтобы остановить дальнейшую обработку
+
+    # Проверяем, является ли сообщение командой для предложения улучшения
+    if user_message.lower() == "предложить улучшение":
+        handle_feedback_button(update, context)
+        return  # Завершаем функцию, чтобы остановить дальнейшую обработку
+
+    # Проверка лимита сообщений для пользователя
+    within_limit, remaining_messages = db_manager.is_within_message_limit(user_id)
+    logging.info(f"User {user_id} has {remaining_messages} messages remaining this hour.")
+
+    if not within_limit:
+        logging.info(f"User {user_id} has reached the message limit.")
+        # Пользователь достиг лимита сообщений
+        payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
+        update.message.reply_text(
+            "Вы достигли лимита сообщений. Подождите час или приобретите премиум подписку.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Купить премиум", url=payment_link)]
+            ])
+        )
+    else:
+        # Обработка обычного сообщения пользователя
+        process_user_message(update, context)
+
+def process_normal_message(update: Update, context: CallbackContext, user_id: int, user_message: str):
     # Проверка лимита сообщений перед продолжением
     within_limit, remaining_messages = db_manager.is_within_message_limit(user_id)
     logging.info(f"User {user_id} has {remaining_messages} messages remaining this hour.")
@@ -212,12 +268,40 @@ def process_user_message(update: Update, context: CallbackContext) -> None:
 def get_base_reply_markup():
     new_chat_button = KeyboardButton('Начать новый чат')
     tips_button = KeyboardButton('Советы по использованию')
-    return ReplyKeyboardMarkup([[new_chat_button], [tips_button]], resize_keyboard=True, one_time_keyboard=False)
+    feedback_button = KeyboardButton('Предложить улучшение')
+    return ReplyKeyboardMarkup([[new_chat_button], [tips_button], [feedback_button]], resize_keyboard=True, one_time_keyboard=False)
 
 def update_message_history(context: CallbackContext, role: str, message: str) -> None:
     message_history = context.user_data.get('message_history', [])
     message_history.append({'role': role, 'content': message})
     context.user_data['message_history'] = message_history
+
+def handle_feedback_button(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    user = db_manager.get_user_by_id(user_id)
+
+    if user and db_manager.check_premium_status(user_id):
+        now = datetime.now()
+        if user.last_feedback_time:
+            time_since_last_feedback = (now - user.last_feedback_time).total_seconds()
+        else:
+            time_since_last_feedback = FEEDBACK_COOLDOWN + 1  # Если время не установлено, разрешить отправку
+
+        if time_since_last_feedback > FEEDBACK_COOLDOWN:
+            context.user_data['awaiting_feedback'] = True
+            update.message.reply_text("Пожалуйста, напишите ваше предложение об улучшении бота. Вы можете отправить только одно предложение в сутки.")
+        else:
+            cooldown_remaining = int((FEEDBACK_COOLDOWN - time_since_last_feedback) / 60 / 60)
+            update.message.reply_text(f"Вы уже отправили предложение об улучшении. Следующее предложение вы сможете отправить через {cooldown_remaining} час(ов).")
+    else:
+        update.message.reply_text("Только премиум-пользователи могут отправлять предложения об улучшении.")
+
+# Используйте эту функцию для отправки уведомления администратору с дополнительной информацией о пользователе
+def send_feedback_to_admin(user, feedback):
+    username = f"@{user.username}" if user.username else "без юзернейма"
+    name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else "без имени"
+    message = f"Предложение об улучшении от пользователя {username} ({name}): {feedback}"
+    send_telegram_notification_to_admin(message)
 
 def escape_markdown_v2(text):
     # Escape Markdown V2 special characters outside of code blocks
@@ -239,6 +323,14 @@ def format_code_block(response_text):
     pattern = r'```(\w+)?\s*(.+?)\s*```'
     formatted_text = re.sub(pattern, r'```\n\2\n```', response_text, flags=re.DOTALL)
     return formatted_text
+
+# Функция для отправки уведомлений в Telegram
+def send_telegram_notification_to_admin(message):
+    admin_chat_id = get_chat_id_for_user(ADMIN_TELEGRAM_ID, db_manager)
+    if admin_chat_id:
+        send_telegram_notification(ADMIN_TELEGRAM_ID, message, db_manager)
+    else:
+        logging.error(f"Chat ID for admin (ID: {ADMIN_TELEGRAM_ID}) not found.")
 
 def check_expired_payment_links():
     db_manager.expire_premium_subscriptions()
@@ -271,6 +363,7 @@ def main() -> None:
     dispatcher.add_handler(MessageHandler(Filters.regex('^Советы по использованию$'), handle_tips_button))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     dispatcher.add_handler(MessageHandler(Filters.regex('^Оплатить$'), handle_payment))
+    dispatcher.add_handler(MessageHandler(Filters.regex('^Предложить улучшение$'), handle_feedback_button))
 
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(update_premium_statuses, 'interval', hours=24)

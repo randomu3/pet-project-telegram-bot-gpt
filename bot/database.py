@@ -25,6 +25,7 @@ class User(Base):
     last_message_time = Column(DateTime, nullable=True)
     message_count = Column(Integer, default=0, nullable=True)
     next_message_available = Column(DateTime, nullable=True)
+    last_feedback_time = Column(DateTime, nullable=True)  # Добавьте эту строку
 
 class Query(Base):
     __tablename__ = 'queries'
@@ -151,7 +152,8 @@ class DatabaseManager:
                     return False, 0
 
                 now = datetime.now()
-                if not user.last_message_time or (now - user.last_message_time).total_seconds() >= 3600:
+                # Обновляем счетчик, если прошел час с момента последнего сообщения
+                if user.last_message_time and (now - user.last_message_time).total_seconds() >= 3600:
                     user.message_count = 0
                     session.commit()
 

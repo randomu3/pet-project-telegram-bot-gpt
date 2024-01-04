@@ -7,6 +7,9 @@ import os
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
+# Добавьте ваш Telegram ID
+ADMIN_TELEGRAM_ID = 188095989  # Замените на ваш реальный Telegram ID
+
 # Настройки базы данных
 DATABASE_URL = "sqlite:///bot_database.db"
 
@@ -27,6 +30,7 @@ PREMIUM_SUBSCRIPTION_PRICE = 10
 # Константы для управления лимитами сообщений
 MAX_QUESTIONS_PER_HOUR_PREMIUM = 10
 MAX_QUESTIONS_PER_HOUR_REGULAR = 1
+FEEDBACK_COOLDOWN = 86400  # 1 час
 
 # Дополнительные настройки
 FREEKASSA_IPS = ['168.119.157.136', '168.119.60.227', '138.201.88.124', '178.154.197.79']

@@ -130,40 +130,53 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
                 ])
             )
 
+def process_feedback(user_id, feedback_text):
+    try:
+        user = db_manager.get_user_by_id(user_id)
+        if user:
+            # Пример отправки уведомления администратору
+            send_feedback_to_admin(user, feedback_text)
+            # Здесь вы также можете добавить логику для сохранения обратной связи в базу данных, если это необходимо
+        else:
+            logging.error(f"User with ID {user_id} not found in database.")
+    except Exception as e:
+        logging.error(f"Error in process_feedback: {e}")
+
 def handle_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     user_message = update.message.text
-    user = update.message.from_user  # Получаем объект пользователя из сообщения
-
-    # Добавляем логирование для отладки
     logging.info(f"Received message from user {user_id}: {user_message}")
-    logging.info(f"User data: {context.user_data}")
 
-    # Проверка на ожидание предложения об улучшении
+    # Получаем данные пользователя
+    user = db_manager.get_user_by_id(user_id)
+    if user:
+        now = datetime.now()
+        # Проверяем, не слишком ли рано пользователь отправляет следующее сообщение
+        if user.last_message_time and (now - user.last_message_time).total_seconds() < FEEDBACK_COOLDOWN:
+            update.message.reply_text("Подождите немного, прежде чем отправлять следующее сообщение.")
+            return
+        # Обновляем время последнего сообщения пользователя
+        user.last_message_time = now
+        db_manager.session.commit()
+
+    # Проверяем, ожидает ли бот предложения об улучшении
     if context.user_data.get('awaiting_feedback', False):
-        # Здесь логика отправки предложения и сброса состояния
-        logging.info(f"User {user_id} is awaiting feedback.")
-        # Проверяем статус премиум подписки пользователя
-        if db_manager.check_premium_status(user_id):
-            logging.info(f"User {user_id} has premium status.")
-            send_feedback_to_admin(user, user_message)
+        now = datetime.now()
+        if user.last_feedback_time is None or (now - user.last_feedback_time).total_seconds() > FEEDBACK_COOLDOWN:
+            process_feedback(user_id, user_message)
+            user.last_feedback_time = now
+            db_manager.session.commit()
             update.message.reply_text("Ваше предложение было отправлено администратору. Спасибо!")
-            context.user_data['awaiting_feedback'] = False
-
-            user = db_manager.get_user_by_id(user_id)
-            if user:
-                user.last_feedback_time = datetime.now()  # Обновляем время последнего предложения об улучшении
-                db_manager.session.commit()
         else:
-            logging.info(f"User {user_id} does not have premium status.")
-            update.message.reply_text("Только премиум-пользователи могут отправлять предложения об улучшении.")
-        context.user_data['awaiting_feedback'] = False  # Сброс после обработки предложения
-        return  # Важно: завершаем функцию здесь, чтобы остановить дальнейшую обработку
+            cooldown_remaining = int((FEEDBACK_COOLDOWN - (now - user.last_feedback_time).total_seconds()) / 3600)
+            update.message.reply_text(f"Вы уже отправили предложение об улучшении. Следующее предложение вы сможете отправить через {cooldown_remaining} час(ов).")
+        context.user_data['awaiting_feedback'] = False
+        return
 
     # Проверяем, является ли сообщение командой для предложения улучшения
     if user_message.lower() == "предложить улучшение":
         handle_feedback_button(update, context)
-        return  # Завершаем функцию, чтобы остановить дальнейшую обработку
+        return
 
     # Проверка лимита сообщений для пользователя
     within_limit, remaining_messages = db_manager.is_within_message_limit(user_id)
@@ -171,7 +184,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
     if not within_limit:
         logging.info(f"User {user_id} has reached the message limit.")
-        # Пользователь достиг лимита сообщений
         payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
         update.message.reply_text(
             "Вы достигли лимита сообщений. Подождите час или приобретите премиум подписку.",
@@ -180,7 +192,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
             ])
         )
     else:
-        # Обработка обычного сообщения пользователя
         process_user_message(update, context)
 
 def process_normal_message(update: Update, context: CallbackContext, user_id: int, user_message: str):
@@ -282,26 +293,24 @@ def handle_feedback_button(update: Update, context: CallbackContext) -> None:
 
     if user and db_manager.check_premium_status(user_id):
         now = datetime.now()
-        if user.last_feedback_time:
-            time_since_last_feedback = (now - user.last_feedback_time).total_seconds()
-        else:
-            time_since_last_feedback = FEEDBACK_COOLDOWN + 1  # Если время не установлено, разрешить отправку
-
-        if time_since_last_feedback > FEEDBACK_COOLDOWN:
+        if user.last_feedback_time is None or (now - user.last_feedback_time).total_seconds() > FEEDBACK_COOLDOWN:
             context.user_data['awaiting_feedback'] = True
-            update.message.reply_text("Пожалуйста, напишите ваше предложение об улучшении бота. Вы можете отправить только одно предложение в сутки.")
+            update.message.reply_text("Пожалуйста, напишите ваше предложение об улучшении бота.")
+            user.last_feedback_time = now  # Обновляем время последнего предложения
+            db_manager.session.commit()  # Сохраняем изменение в базе данных
         else:
-            cooldown_remaining = int((FEEDBACK_COOLDOWN - time_since_last_feedback) / 60 / 60)
+            cooldown_remaining = int((FEEDBACK_COOLDOWN - (now - user.last_feedback_time).total_seconds()) / 3600)
             update.message.reply_text(f"Вы уже отправили предложение об улучшении. Следующее предложение вы сможете отправить через {cooldown_remaining} час(ов).")
     else:
         update.message.reply_text("Только премиум-пользователи могут отправлять предложения об улучшении.")
 
 # Используйте эту функцию для отправки уведомления администратору с дополнительной информацией о пользователе
 def send_feedback_to_admin(user, feedback):
-    username = f"@{user.username}" if user.username else "без юзернейма"
-    name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else "без имени"
-    message = f"Предложение об улучшении от пользователя {username} ({name}): {feedback}"
-    send_telegram_notification_to_admin(message)
+    try:
+        message = f"Предложение об улучшении от пользователя {user.username} ({user.first_name} {user.last_name}): {feedback}"
+        send_telegram_notification_to_admin(message)
+    except Exception as e:
+        logging.error(f"Error in send_feedback_to_admin: {e}")
 
 def escape_markdown_v2(text):
     # Escape Markdown V2 special characters outside of code blocks

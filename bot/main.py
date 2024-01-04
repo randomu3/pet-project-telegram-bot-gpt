@@ -71,7 +71,18 @@ def start(update: Update, context: CallbackContext) -> None:
     # Проверяем, есть ли у пользователя премиум-статус
     is_premium = db_manager.check_premium_status(user_id)
     premium_status_message = "У вас активна премиум подписка." if is_premium else "У вас нет активной премиум подписки."
-    update.message.reply_text(f"{WELCOME_MESSAGE}\n{premium_status_message}", reply_markup=get_base_reply_markup())
+
+    # Информация о премиум подписке
+    premium_info = (
+        f"🌟 <b>Премиум Подписка:</b>\n"
+        f"- Стоимость: {PREMIUM_SUBSCRIPTION_PRICE} рублей в месяц.\n"
+        f"- Срок действия: 1 месяц.\n"
+        f"- Преимущества: {MAX_QUESTIONS_PER_HOUR_PREMIUM} сообщений в час.\n\n"
+        f"{premium_status_message}"
+    )
+
+    # Отправляем приветственное сообщение с информацией о премиум подписке
+    update.message.reply_text(f"{WELCOME_MESSAGE}\n\n{premium_info}", reply_markup=get_base_reply_markup(), parse_mode='HTML')
 
 def handle_tips_button(update: Update, context: CallbackContext) -> None:
     tips_text = (

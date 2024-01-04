@@ -7,7 +7,6 @@ from telegram.error import TimedOut
 from bot.database import DatabaseManager
 from bot.hackergpt_api import HackerGPTAPI
 from dotenv import load_dotenv
-from os import getenv
 import os
 import logging
 import re
@@ -15,24 +14,10 @@ from .freekassa_api import generate_payment_link
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
 from datetime import datetime
-from config import MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR
+from config import TELEGRAM_BOT_TOKEN, PREMIUM_SUBSCRIPTION_PRICE, WELCOME_MESSAGE, ERROR_MESSAGE, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR, MERCHANT_ID, SECRET_KEY_1
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-# Load environment variables explicitly
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-load_dotenv(dotenv_path=dotenv_path)
-
-# Get tokens from environment variables
-# Получение переменных окружения
-FREEKASSA_API_KEY = getenv('FREEKASSA_API_KEY')
-MERCHANT_ID = getenv('FREEKASSA_MERCHANT_ID')
-SECRET_KEY_1 = getenv('FREEKASSA_SECRET_KEY_1')
-TELEGRAM_TOKEN = getenv('TELEGRAM_TOKEN')
-WELCOME_MESSAGE = 'Привет! Я BlackGPT бот. Задайте мне вопрос.'
-ERROR_MESSAGE = 'Извините, возникла проблема при обработке вашего запроса.'
-PREMIUM_SUBSCRIPTION_PRICE = 10  # Примерная сумма оплаты за премиум подписку
 
 # Create instances for database and API interactions
 db_manager = DatabaseManager(MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR)
@@ -131,7 +116,20 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
 
 def handle_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    logging.info(f"Handling message from user {user_id}")
+
+    # Проверка лимита сообщений перед продолжением
+    within_limit, remaining_messages = db_manager.is_within_message_limit(user_id)
+    logging.info(f"User {user_id} has {remaining_messages} messages remaining this hour.")
+
+    if not within_limit:
+        payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
+        update.message.reply_text(
+            "Вы достигли лимита сообщений. Подождите час или приобретите премиум подписку.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Купить премиум", url=payment_link)]
+            ])
+        )
+        return
 
     # Check if message count is initialized for this user, if not, initialize it
     if f'message_count_{user_id}' not in context.user_data:
@@ -252,7 +250,7 @@ def main() -> None:
         'read_timeout': 10,
         'connect_timeout': 10
     }
-    updater = Updater(TELEGRAM_TOKEN, use_context=True, request_kwargs=request_kwargs)
+    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, request_kwargs=request_kwargs)
     dispatcher = updater.dispatcher
 
     # Register command and message handlers

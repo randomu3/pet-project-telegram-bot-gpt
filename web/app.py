@@ -9,7 +9,7 @@ import logging
 import traceback
 from logging.handlers import RotatingFileHandler
 from bot.freekassa_api import send_telegram_notification
-from config import MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR
+from config import MERCHANT_ID, SECRET_KEY_2, FREEKASSA_IPS, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR
 
 app = Flask(__name__)
 db_manager = DatabaseManager(MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR)
@@ -25,11 +25,6 @@ app.logger.addHandler(file_handler)
 
 app.logger.setLevel(logging.INFO)
 app.logger.info('YourApp startup')
-
-MERCHANT_ID = os.getenv('FREEKASSA_MERCHANT_ID')
-SECRET_KEY_2 = os.getenv('FREEKASSA_SECRET_KEY_2')  # Используйте "Секретное слово 2" для подписи вебхука
-
-FREEKASSA_IPS = ['168.119.157.136', '168.119.60.227', '138.201.88.124', '178.154.197.79']
 
 def is_valid_signature(data, secret_key):
     app.logger.info(f"Validating signature with data: {data}")

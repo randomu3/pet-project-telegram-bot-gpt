@@ -7,8 +7,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from datetime import datetime
 import logging
+from config import DATABASE_URL
 
-DATABASE_URL = "sqlite:///bot_database.db"
 engine = create_engine(DATABASE_URL, echo=False)
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
@@ -148,20 +148,18 @@ class DatabaseManager:
             with self.session() as session:
                 user = session.query(User).filter(User.id == user_id).first()
                 if not user:
-                    return False
+                    return False, 0
 
                 now = datetime.now()
                 if not user.last_message_time or (now - user.last_message_time).total_seconds() >= 3600:
                     user.message_count = 0
                     session.commit()
 
-                if user.is_premium:
-                    return user.message_count < self.max_questions_premium
-                else:
-                    return user.message_count < self.max_questions_regular
+                remaining_messages = self.max_questions_premium - user.message_count if user.is_premium else self.max_questions_regular - user.message_count
+                return user.message_count < self.max_questions_premium if user.is_premium else user.message_count < self.max_questions_regular, remaining_messages
         except SQLAlchemyError as e:
             logging.error(f"Database error in is_within_message_limit: {e}")
-            return False
+            return False, 0
 
     def update_message_count(self, user_id):
         try:

@@ -72,3 +72,8 @@ Accept-Encoding: gzip
 2024-01-04 15:05:11,606 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
 2024-01-04 15:05:32,112 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
 2024-01-04 15:05:32,475 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+2024-01-04 19:26:31,845 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+2024-01-04 19:26:32,172 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+2024-01-04 19:26:46,091 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+2024-01-04 19:26:46,387 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]
+2024-01-04 19:30:16,734 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:27]

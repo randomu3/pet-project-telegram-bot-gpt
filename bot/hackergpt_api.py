@@ -6,10 +6,11 @@ import logging
 from os import getenv
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from config import HACKERGPT_API_KEY, HACKERGPT_LINK
 
 class HackerGPTAPI:
-    API_URL = 'https://www.hackergpt.co/api/chat/completions'
-    API_KEY = getenv('HACKERGPT_API_KEY')
+    API_URL = HACKERGPT_LINK
+    API_KEY = HACKERGPT_API_KEY
     TIMEOUT = 20  # Timeout for API requests
 
     def __init__(self):

@@ -1,8 +1,8 @@
-# bot/utils.py
+# bot/utils/helpers.py
 
 import logging
-from bot.freekassa_api import send_telegram_notification, get_chat_id_for_user
-from config import ADMIN_TELEGRAM_ID
+from bot.api.freekassa import send_telegram_notification, get_chat_id_for_user
+from config.settings import ADMIN_TELEGRAM_ID
 
 def send_telegram_notification_to_admin(message, db_manager):
     admin_chat_id = get_chat_id_for_user(ADMIN_TELEGRAM_ID, db_manager)

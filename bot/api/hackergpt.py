@@ -1,4 +1,3 @@
-
 # bot/hackergpt_api.py
 
 import requests
@@ -6,7 +5,7 @@ import logging
 from os import getenv
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from config import HACKERGPT_API_KEY, HACKERGPT_LINK
+from config.settings import HACKERGPT_API_KEY, HACKERGPT_LINK
 
 class HackerGPTAPI:
     API_URL = HACKERGPT_LINK

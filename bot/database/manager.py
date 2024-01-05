@@ -1,41 +1,16 @@
+# bot/database/manager.py
 
-# bot/database.py
-
-from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, DateTime, ForeignKey, Boolean
-from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
-
-from bot.utils import send_telegram_notification_to_admin
+from bot.database.models import Base, User, Query
+from config.settings import DATABASE_URL
+from bot.utils.helpers import send_telegram_notification_to_admin
 from datetime import datetime
 import logging
-from config import DATABASE_URL
 
 engine = create_engine(DATABASE_URL, echo=False)
 Session = sessionmaker(bind=engine)
-Base = declarative_base()
-
-class User(Base):
-    __tablename__ = 'users'
-    id = Column(Integer, primary_key=True)
-    username = Column(String)
-    chat_id = Column(Integer)  # Используйте Integer или BigInteger в зависимости от размера id чата
-    first_name = Column(String)
-    last_name = Column(String)
-    is_premium = Column(Boolean, default=False)
-    premium_expiration = Column(DateTime)  # Исправлено имя поля
-    last_message_time = Column(DateTime, nullable=True)
-    message_count = Column(Integer, default=0, nullable=True)
-    next_message_available = Column(DateTime, nullable=True)
-    last_feedback_time = Column(DateTime, nullable=True)  # Добавьте эту строку
-
-class Query(Base):
-    __tablename__ = 'queries'
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    text = Column(String)
-    response = Column(String)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
 Base.metadata.create_all(engine)
 
 class DatabaseManager:

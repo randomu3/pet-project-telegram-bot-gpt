@@ -74,3 +74,35 @@ Specify your license or leave this section for later inclusion.
 ---
 
 This README provides a basic structure. Feel free to modify it to better suit your project's needs.
+
+my_telegram_bot_project/
+├── bot/                          # Основная папка для Telegram бота
+│   ├── api/                      # Модули для работы с внешними API
+│   │   ├── hackergpt.py          # Интеграция с HackerGPT API
+│   │   └── freekassa.py          # Интеграция с FreeKassa API
+│   ├── commands/                 # Обработчики команд бота
+│   │   ├── start.py              # Обработчик команды /start
+│   │   ├── status.py             # Обработчик команды /status
+│   │   └── payment.py            # Обработчики платежных команд
+│   ├── database/                 # Модули работы с базой данных
+│   │   ├── models.py             # Определения моделей SQLAlchemy
+│   │   └── manager.py            # Управление взаимодействием с базой данных
+│   ├── utils/                    # Вспомогательные функции и утилиты
+│   │   ├── logging.py            # Настройка логирования
+│   │   └── helpers.py            # Различные вспомогательные функции
+│   ├── __init__.py               # Инициализация модуля бота
+│   └── main.py                   # Основной файл для запуска бота
+├── config/                       # Конфигурационные файлы и настройки
+│   ├── __init__.py
+│   └── settings.py               # Настройки проекта
+├── web/                          # Веб-интерфейс и веб-хуки
+│   ├── __init__.py
+│   └── app.py                    # Flask приложение
+├── tests/                        # Тесты для проекта
+│   ├── api_tests/                # Тесты API функций
+│   ├── command_tests/            # Тесты команд бота
+│   └── database_tests/           # Тесты базы данных
+├── logs/                         # Лог-файлы
+├── requirements.txt              # Зависимости проекта
+├── README.md                     # Документация проекта
+└── .env                          # Переменные окружения

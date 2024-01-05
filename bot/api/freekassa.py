@@ -1,9 +1,11 @@
+# bot/api/freekassa.py
+
 import hashlib
 from datetime import datetime
 import logging
 import requests
 import os
-from config import TELEGRAM_BOT_TOKEN, MERCHANT_ID, SECRET_KEY_1
+from config.settings import TELEGRAM_BOT_TOKEN, MERCHANT_ID, SECRET_KEY_1
 
 def generate_payment_link(user_id, amount, merchant_id=MERCHANT_ID, SECRET_KEY_1=SECRET_KEY_1, currency="RUB", lang="ru"):
     order_id = str(int(datetime.now().timestamp()))

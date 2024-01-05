@@ -1,15 +1,15 @@
 # web/app.py
 
+from config.settings import MERCHANT_ID, SECRET_KEY_2, FREEKASSA_IPS, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR
+from bot.database.manager import DatabaseManager
+from bot.api.freekassa import send_telegram_notification
 from flask import Flask, request, jsonify
-from bot.database import DatabaseManager
-import os
-import hashlib
-import datetime
-import logging
-import traceback
 from logging.handlers import RotatingFileHandler
-from bot.freekassa_api import send_telegram_notification
-from config import MERCHANT_ID, SECRET_KEY_2, FREEKASSA_IPS, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR
+import traceback
+import datetime
+import hashlib
+import logging
+import os
 
 app = Flask(__name__)
 db_manager = DatabaseManager(MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR)

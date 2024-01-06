@@ -53,9 +53,11 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
                 ])
             )
 
-# Вспомогательные функции
 def get_base_reply_markup():
-    new_chat_button = KeyboardButton('Начать новый чат')
+    new_chat_button = KeyboardButton('Начать новый чат')  # Текст должен быть строкой
     tips_button = KeyboardButton('Советы по использованию')
     feedback_button = KeyboardButton('Предложить улучшение')
     return ReplyKeyboardMarkup([[new_chat_button], [tips_button], [feedback_button]], resize_keyboard=True, one_time_keyboard=False)
+
+def payment_handler():
+    return CommandHandler("payment", handle_payment)

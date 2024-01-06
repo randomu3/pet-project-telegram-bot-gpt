@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
 from bot.database.models import Base, User, Query
 from config.settings import DATABASE_URL
-from bot.utils.helpers import send_telegram_notification_to_admin
+from bot.utils.admin_notifications import send_telegram_notification_to_admin
 from datetime import datetime
 import logging
 

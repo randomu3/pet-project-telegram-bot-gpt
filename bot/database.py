@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Foreign
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
 
-from bot.telegram_utils import send_telegram_notification_to_admin
+from bot.telegram_utils import send_telegram_notification_to_admin, send_expiration_notification
 from datetime import datetime, timedelta
 import logging
 from config import DATABASE_URL
@@ -140,10 +140,7 @@ class DatabaseManager:
     def expire_payment_links(self):
         try:
             with self.session() as session:
-                # Получение текущего времени
                 now = datetime.now()
-
-                # Находим все ссылки, срок действия которых истёк
                 expired_links = session.query(PaymentLink).filter(
                     PaymentLink.expiration_time < now,
                     PaymentLink.is_paid == False
@@ -151,9 +148,8 @@ class DatabaseManager:
 
                 for link in expired_links:
                     user_id = link.user_id
-                    # Отправляем уведомление пользователю
-                    send_expiration_notification(user_id, db_manager)
-                    session.delete(link)  # Удаляем просроченную ссылку
+                    send_expiration_notification(user_id, self)  # Используйте self здесь
+                    session.delete(link)
 
                 session.commit()
         except SQLAlchemyError as e:

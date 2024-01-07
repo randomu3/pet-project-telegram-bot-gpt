@@ -63,7 +63,25 @@ def inform_user_about_premium_status(update, context, user_id):
 
 def status(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    show_user_status(update, context, user_id)
+    user = db_manager.get_user_by_id(user_id)
+
+    if user:
+        is_premium = user.is_premium
+        premium_status_message = "У вас активна премиум подписка." if is_premium else "У вас нет активной премиум подписки."
+
+        if is_premium and user.premium_expiration:
+            expiration_date = user.premium_expiration.strftime("%Y-%m-%d %H:%M:%S")
+            premium_status_message += f"\n- Действительна до {expiration_date}."
+
+        # Выводим оставшееся количество вопросов для всех пользователей
+        message_limit = MAX_QUESTIONS_PER_HOUR_PREMIUM if is_premium else MAX_QUESTIONS_PER_HOUR_REGULAR
+        remaining_questions = message_limit - user.message_count
+        remaining_questions_message = f"- Вопросов осталось: {remaining_questions} в этот час"
+
+        status_msg = f"📌 Ваш статус:\n- {premium_status_message}\n{remaining_questions_message}"
+        update.message.reply_text(status_msg)
+    else:
+        update.message.reply_text("Ошибка: информация о пользователе не найдена.")
 
 # Command handler for /start
 def start(update: Update, context: CallbackContext) -> None:
@@ -157,6 +175,14 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     user_message = update.message.text
     logging.info(f"Received message from user {user_id}: {user_message}")
+
+    # Проверяем, находится ли администратор в режиме рассылки
+    if context.user_data.get('is_broadcasting', False) and str(user_id) == ADMIN_TELEGRAM_ID:
+        broadcast_to_all_users(user_message, db_manager)
+        context.user_data['is_broadcasting'] = False
+        update.message.reply_text("Сообщение отправлено всем пользователям.")
+        return
+
     # Получаем данные пользователя
     user = db_manager.get_user_by_id(user_id)
     if user:
@@ -382,16 +408,41 @@ def check_expired_payment_links():
     db_manager.expire_premium_subscriptions()
     logging.info("Expired premium subscriptions have been updated.")
 
-def show_user_status(update, context, user_id):
+# Добавьте новый обработчик команды
+def broadcast_command(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    logging.info(f"Broadcast command triggered by user {user_id}")
+    
+    if str(user_id) != ADMIN_TELEGRAM_ID:
+        logging.warning(f"Unauthorized attempt to use broadcast command by user {user_id}")
+        update.message.reply_text("У вас нет прав для использования этой команды.")
+        return
+
+    context.user_data['is_broadcasting'] = True
+    update.message.reply_text("Введите сообщение для рассылки всем пользователям:")
+
+def broadcast_to_all_users(message, db_manager):
+    # Добавляем префикс к сообщению
+    prefixed_message = f"Сообщение от администратора: {message}"
+
+    users = db_manager.get_all_users()
+    for user in users:
+        send_telegram_notification(user.id, prefixed_message, db_manager)
+
+def grant_premium_command(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    if str(user_id) != ADMIN_TELEGRAM_ID:
+        update.message.reply_text("У вас нет прав для использования этой команды.")
+        return
+
     try:
-        user = db_manager.get_user_by_id(user_id)
-        if user:
-            remaining_questions = (MAX_QUESTIONS_PER_HOUR_PREMIUM if user.is_premium else MAX_QUESTIONS_PER_HOUR_REGULAR) - user.message_count
-            status_msg = f"📌 Условия использования:\n- Вопросов осталось: {remaining_questions} в этот час\n- Премиум статус: {'Активен' if user.is_premium else 'Не активен'}"
-            update.message.reply_text(status_msg)
-    except Exception as e:
-        logging.error(f"Error in show_user_status: {e}")
-        update.message.reply_text("Произошла ошибка при отображении статуса.")
+        target_user_id = int(context.args[0])
+        new_expiration_date = datetime.now() + timedelta(days=30)
+        db_manager.update_premium_status(target_user_id, True, new_expiration_date)
+        update.message.reply_text(f"Премиум доступ выдан пользователю с ID {target_user_id} на месяц.")
+        send_telegram_notification(target_user_id, "Вам выдан премиум доступ на месяц!", db_manager)
+    except (IndexError, ValueError):
+        update.message.reply_text("Пожалуйста, укажите корректный ID пользователя.")
 
 # Main function to set up and start the bot
 def main() -> None:
@@ -405,6 +456,9 @@ def main() -> None:
     # Register command and message handlers
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("status", status))
+    dispatcher.add_handler(CommandHandler("broadcast", broadcast_command))
+    dispatcher.add_handler(CommandHandler("grantpremium", grant_premium_command))
+
     dispatcher.add_handler(MessageHandler(Filters.regex('^Начать новый чат$'), handle_new_chat_button))
     dispatcher.add_handler(MessageHandler(Filters.regex('^Советы по использованию$'), handle_tips_button))
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))

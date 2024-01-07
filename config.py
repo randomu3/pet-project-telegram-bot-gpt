@@ -8,7 +8,7 @@ dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
 # Добавьте ваш Telegram ID
-ADMIN_TELEGRAM_ID = 188095989  # Замените на ваш реальный Telegram ID
+ADMIN_TELEGRAM_ID = '188095989'  # Замените на ваш реальный Telegram ID
 
 # Настройки базы данных
 DATABASE_URL = "sqlite:///bot_database.db"

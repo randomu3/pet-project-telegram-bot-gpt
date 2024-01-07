@@ -1,19 +1,19 @@
 # bot/utils.py
+from config import MERCHANT_ID, SECRET_KEY_1, PAYMENT_LINK_LIFETIME_MINUTES
+from bot.database import PaymentLink
+from datetime import datetime, timedelta
+import hashlib
 
-import logging
-from bot.freekassa_api import send_telegram_notification, get_chat_id_for_user
-from config import ADMIN_TELEGRAM_ID
+def generate_payment_link(user_id, amount, db_manager, merchant_id=MERCHANT_ID, secret_key_1=SECRET_KEY_1, currency="RUB", lang="ru"):
+    order_id = str(int(datetime.now().timestamp()))
+    expiration_time = datetime.now() + timedelta(minutes=PAYMENT_LINK_LIFETIME_MINUTES)
 
-def send_telegram_notification_to_admin(message, db_manager):
-    admin_chat_id = get_chat_id_for_user(ADMIN_TELEGRAM_ID, db_manager)
-    if admin_chat_id:
-        send_telegram_notification(ADMIN_TELEGRAM_ID, message, db_manager)
-    else:
-        logging.error(f"Chat ID for admin (ID: {ADMIN_TELEGRAM_ID}) not found.")
+    new_link = PaymentLink(user_id=user_id, order_id=order_id, expiration_time=expiration_time)
+    db_manager.session.add(new_link)
+    db_manager.session.commit()
 
-def send_feedback_to_admin(user, feedback, db_manager):
-    try:
-        message = f"Предложение об улучшении от пользователя @{user.username} ({user.first_name} {user.last_name}): {feedback}"
-        send_telegram_notification_to_admin(message, db_manager)
-    except Exception as e:
-        logging.error(f"Error in send_feedback_to_admin: {e}")
+    sign_str = f"{merchant_id}:{amount}:{secret_key_1}:{currency}:{order_id}"
+    sign = hashlib.md5(sign_str.encode('utf-8')).hexdigest()
+    payment_url = f"https://pay.kassa.shop/?m={merchant_id}&oa={amount}&o={order_id}&currency={currency}&s={sign}&lang={lang}&us_user_id={user_id}&strd=1"
+
+    return payment_url

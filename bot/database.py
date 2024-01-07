@@ -1,11 +1,11 @@
 
 # bot/database.py
 
-from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, DateTime, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
 
-from bot.utils import send_telegram_notification_to_admin
+from bot.telegram_utils import send_telegram_notification_to_admin
 from datetime import datetime, timedelta
 import logging
 from config import DATABASE_URL
@@ -35,6 +35,14 @@ class Query(Base):
     text = Column(String)
     response = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+class PaymentLink(Base):
+    __tablename__ = 'payment_links'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    order_id = Column(String, unique=True)
+    expiration_time = Column(DateTime)
+    is_paid = Column(Boolean, default=False)
 
 Base.metadata.create_all(engine)
 
@@ -100,6 +108,13 @@ class DatabaseManager:
         message = f"Новый пользователь зашел в бота: @{username} (ID: {user_id})"
         send_telegram_notification_to_admin(message, self)
     
+    def get_next_message_time(self, user_id):
+        with self.session() as session:
+            user = session.query(User).filter(User.id == user_id).first()
+            if user and user.last_message_time:
+                return user.last_message_time + timedelta(seconds=3600)
+            return None
+
     def add_query(self, user_id, text, response):
         try:
             with self.session() as session:
@@ -109,6 +124,50 @@ class DatabaseManager:
         except SQLAlchemyError as e:
             logging.error(f"Database error in add_query: {e}")
             session.rollback()
+
+    def reset_message_count(self, user_id):
+        try:
+            with self.session() as session:
+                user = session.query(User).filter(User.id == user_id).first()
+                if user:
+                    user.message_count = 0
+                    session.commit()
+                    logging.info(f"Message count reset for user {user_id}")
+        except SQLAlchemyError as e:
+            logging.error(f"Database error in reset_message_count: {e}")
+            session.rollback()
+
+    def expire_payment_links(self):
+        try:
+            with self.session() as session:
+                # Получение текущего времени
+                now = datetime.now()
+
+                # Находим все ссылки, срок действия которых истёк
+                expired_links = session.query(PaymentLink).filter(
+                    PaymentLink.expiration_time < now,
+                    PaymentLink.is_paid == False
+                ).all()
+
+                for link in expired_links:
+                    user_id = link.user_id
+                    # Отправляем уведомление пользователю
+                    send_expiration_notification(user_id, db_manager)
+                    session.delete(link)  # Удаляем просроченную ссылку
+
+                session.commit()
+        except SQLAlchemyError as e:
+            logging.error(f"Database error in expire_payment_links: {e}")
+            session.rollback()
+
+    def is_payment_link_valid(self, user_id):
+        with self.session() as session:
+            link = session.query(PaymentLink).filter(
+                PaymentLink.user_id == user_id,
+                PaymentLink.expiration_time > datetime.now(),
+                PaymentLink.is_paid == False
+            ).first()
+            return link is not None
 
     def __del__(self):
         if hasattr(self, 'session'):

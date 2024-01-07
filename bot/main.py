@@ -3,18 +3,18 @@
 
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
-from telegram.error import TimedOut
 from bot.database import DatabaseManager
 from bot.hackergpt_api import HackerGPTAPI
 from dotenv import load_dotenv
 import logging
 import re
-from bot.freekassa_api import generate_payment_link, get_chat_id_for_user, send_telegram_notification
+from bot.freekassa_api import get_chat_id_for_user, send_telegram_notification
+from bot.utils import generate_payment_link
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
 from datetime import datetime, timedelta
 from config import TELEGRAM_BOT_TOKEN, FEEDBACK_COOLDOWN, PREMIUM_SUBSCRIPTION_PRICE,ADMIN_TELEGRAM_ID, WELCOME_MESSAGE, ERROR_MESSAGE, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR, MERCHANT_ID, SECRET_KEY_1
-from bot.utils import send_feedback_to_admin
+from bot.telegram_utils import send_feedback_to_admin
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -31,7 +31,13 @@ def update_premium_statuses():
 
 def handle_payment(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
+    # Проверяем, актуальна ли ссылка на оплату
+    if not db_manager.is_payment_link_valid(user_id):
+        update.message.reply_text("Ссылка для оплаты истекла. Пожалуйста, запросите новую.")
+        return
+
+    # Если ссылка актуальна, продолжаем процесс оплаты
+    payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, db_manager)
     update.message.reply_text(
         "Для приобретения премиум подписки перейдите по ссылке:",
         reply_markup=InlineKeyboardMarkup([
@@ -73,7 +79,7 @@ def start(update: Update, context: CallbackContext) -> None:
 
     # Проверяем, есть ли у пользователя премиум-статус
     is_premium = db_manager.check_premium_status(user_id)
-    premium_status_message = "У вас активна премиум подписка." if is_premium else "У вас нет активной премиум подписки."
+    premium_status_message = "У вас активна премиум подписка." if is_premium else f"У вас нет активной премиум подписки.\nВам доступно {MAX_QUESTIONS_PER_HOUR_REGULAR} запроса."
 
     # Информация о премиум подписке
     premium_info = (
@@ -113,9 +119,12 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
         # Проверка лимита сообщений
         limit_reached = check_message_limit(user_id, context, db_manager)
         if limit_reached:
-            payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, MERCHANT_ID, SECRET_KEY_1)
+            next_message_time = db_manager.get_next_message_time(user_id)
+            next_message_time_str = next_message_time.strftime("%Y-%m-%d %H:%M:%S") if next_message_time else "скоро"
+            payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, db_manager, MERCHANT_ID, SECRET_KEY_1)
             update.message.reply_text(
-                "Вы достигли лимита сообщений. Приобретите премиум подписку для продолжения.",
+                f"Вы достигли лимита сообщений. Время, когда вы сможете написать следующий вопрос BlackGPT - {next_message_time_str}.\n\n"
+                "Приобретите премиум подписку и получите более высокие лимиты.",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("Купить премиум", url=payment_link)]
                 ])
@@ -124,7 +133,7 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
             context.user_data[f'message_count_{user_id}'] = 0
             update.message.reply_text("Новый чат начат!")
             # Добавляем сообщение о возможности покупки премиума
-            payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, MERCHANT_ID, SECRET_KEY_1)
+            payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, db_manager, MERCHANT_ID, SECRET_KEY_1)
             update.message.reply_text(
                 "Приобретите премиум подписку, чтобы не ограничивать себя в сообщениях и получить дополнительные преимущества.",
                 reply_markup=InlineKeyboardMarkup([
@@ -148,7 +157,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     user_message = update.message.text
     logging.info(f"Received message from user {user_id}: {user_message}")
-
     # Получаем данные пользователя
     user = db_manager.get_user_by_id(user_id)
     if user:
@@ -223,7 +231,7 @@ def inform_limit_reached(update, user_id):
     else:
         message = "Произошла ошибка при определении времени следующего сообщения."
 
-    payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
+    payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, db_manager)  # Исправлен вызов функции
     update.message.reply_text(
         message,
         reply_markup=InlineKeyboardMarkup([
@@ -406,6 +414,7 @@ def main() -> None:
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(update_premium_statuses, 'interval', hours=24)
     scheduler.add_job(check_expired_payment_links, 'interval', hours=24)
+    scheduler.add_job(db_manager.expire_payment_links, 'interval', hours=24)
     scheduler.start()
 
     # Start the bot

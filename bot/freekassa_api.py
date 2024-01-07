@@ -1,20 +1,8 @@
-import hashlib
-from datetime import datetime
-import logging
+# bot/frekassa_api.py
+
+from config import TELEGRAM_BOT_TOKEN
 import requests
-import os
-from config import TELEGRAM_BOT_TOKEN, MERCHANT_ID, SECRET_KEY_1
-
-def generate_payment_link(user_id, amount, merchant_id=MERCHANT_ID, SECRET_KEY_1=SECRET_KEY_1, currency="RUB", lang="ru"):
-    order_id = str(int(datetime.now().timestamp()))
-
-    # Формирование строки подписи
-    sign_str = f"{merchant_id}:{amount}:{SECRET_KEY_1}:{currency}:{order_id}"
-    sign = hashlib.md5(sign_str.encode('utf-8')).hexdigest()
-
-    # Формирование URL
-    payment_url = f"https://pay.kassa.shop/?m={merchant_id}&oa={amount}&o={order_id}&currency={currency}&s={sign}&lang={lang}&us_user_id={user_id}&strd=1"
-    return payment_url
+import logging
 
 def get_chat_id_for_user(user_id, db_manager):
     user = db_manager.get_user_by_id(user_id)

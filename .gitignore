@@ -5,3 +5,4 @@ __pycache__/
 bot_database.db
 alembic/
 config.py
+logs/

@@ -7,14 +7,12 @@ from telegram.error import TimedOut
 from bot.database import DatabaseManager
 from bot.hackergpt_api import HackerGPTAPI
 from dotenv import load_dotenv
-import os
 import logging
 import re
 from bot.freekassa_api import generate_payment_link, get_chat_id_for_user, send_telegram_notification
-import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 from config import TELEGRAM_BOT_TOKEN, FEEDBACK_COOLDOWN, PREMIUM_SUBSCRIPTION_PRICE,ADMIN_TELEGRAM_ID, WELCOME_MESSAGE, ERROR_MESSAGE, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR, MERCHANT_ID, SECRET_KEY_1
 from bot.utils import send_feedback_to_admin
 
@@ -41,12 +39,15 @@ def handle_payment(update: Update, context: CallbackContext) -> None:
         ])
     )
 
-def check_message_limit(user_id, context, db_manager):
-    user_message_count = context.user_data.get(f'message_count_{user_id}', 0)
-    if db_manager.check_premium_status(user_id):
-        return user_message_count >= 10  # Лимит для премиум-пользователей
+def check_message_limit (user_id, context, db_manager):
+    user = db_manager.get_user_by_id(user_id)
+    if user:
+        limit = MAX_QUESTIONS_PER_HOUR_PREMIUM if user.is_premium else MAX_QUESTIONS_PER_HOUR_REGULAR
+        logging.info(f"Checking message limit for user {user_id}. Premium: {user.is_premium}, Message count: {user.message_count}, Limit: {limit}")
+        return user.message_count >= limit
     else:
-        return user_message_count >= 1  # Лимит для обычных пользователей
+        logging.warning(f"User {user_id} not found when checking message limit.")
+        return False  # If the user is not found, do not allow sending messages by default
 
 def inform_user_about_premium_status(update, context, user_id):
     if db_manager.check_premium_status(user_id):
@@ -92,8 +93,8 @@ def handle_tips_button(update: Update, context: CallbackContext) -> None:
         '- Вы можете задавать вопросы напрямую.\n'
         '- Ответы могут занимать некоторое время, будьте терпеливы.\n'
         '- Используйте четкие и конкретные вопросы для лучших ответов.\n'
-        '- Попросите Black GPT написать план и действуйте по его пунктам.\n'
-        '- Попросите Black GPT прописывать номера версий при использовании во избежание различий в методах последних версий.\n'
+        '- Сделайте запрос Black GPT, написать план и действуйте по его пунктам.\n'
+        '- Сделайте запрос Black GPT, прописывать номера версий при использовании во избежание различий в методах последних версий.\n'
         '- Для решения сложной проблемы в коде - просите добавить логирование.'
     )
     update.message.reply_text(tips_text, parse_mode='HTML')
@@ -152,13 +153,30 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     user = db_manager.get_user_by_id(user_id)
     if user:
         now = datetime.now()
-        # Проверяем, не слишком ли рано пользователь отправляет следующее сообщение
-        if user.last_message_time and (now - user.last_message_time).total_seconds() < FEEDBACK_COOLDOWN:
-            update.message.reply_text("Подождите немного, прежде чем отправлять следующее сообщение.")
-            return
-        # Обновляем время последнего сообщения пользователя
-        user.last_message_time = now
+
+        # Если время последнего сообщения не установлено, устанавливаем текущее время
+        if user.last_message_time is None:
+            user.last_message_time = now
+
+        # Сброс счетчика, если прошел час с момента последнего сообщения
+        if (now - user.last_message_time).total_seconds() >= 3600:
+            user.message_count = 0
+            user.last_message_time = now
+
+        # Обновляем счетчик сообщений
+        user.message_count += 1
         db_manager.session.commit()
+
+        # Логирование текущего состояния счетчика
+        logging.info(f"User {user_id} message count updated to: {user.message_count}")
+
+        # Логируем текущее количество сообщений и оставшееся время до сброса счетчика
+        if user.message_count is not None:
+            time_until_reset = 3600 - (now - user.last_message_time).total_seconds()
+            logging.info(f"User {user_id} message count: {user.message_count}. Time until reset: {time_until_reset} seconds")
+
+    # Log current message count
+    logging.info(f"User {user_id} message count before processing: {user.message_count if user else 'User not found'}")
 
     # Проверяем, ожидает ли бот предложения об улучшении
     if context.user_data.get('awaiting_feedback', False):
@@ -181,20 +199,38 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
     # Проверка лимита сообщений для пользователя
     within_limit, remaining_messages = db_manager.is_within_message_limit(user_id)
-    logging.info(f"User {user_id} has {remaining_messages} messages remaining this hour.")
+    logging.info(f"User {user_id} has {remaining_messages} messages remaining this hour. Within limit: {within_limit}")
 
     if not within_limit:
-        logging.info(f"User {user_id} has reached the message limit.")
-        payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
-        update.message.reply_text(
-            "Вы достигли лимита сообщений. Подождите час или приобретите премиум подписку.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Купить премиум", url=payment_link)]
-            ])
+        # Если лимит сообщений исчерпан
+        inform_limit_reached(update, user_id)  # Функция для информирования пользователя о достижении лимита
+    else:
+        # Если лимит не исчерпан
+        process_user_message(update, context)
+        # Обновляем счетчик сообщений
+        db_manager.update_message_count(user_id)
+        logging.info(f"After updating, User {user_id} has {remaining_messages - 1} messages remaining this hour.")
+
+def inform_limit_reached(update, user_id):
+    user = db_manager.get_user_by_id(user_id)
+    if user and user.last_message_time:
+        next_message_time = user.last_message_time + timedelta(seconds=3600)
+        next_message_time_str = next_message_time.strftime("%Y-%m-%d %H:%M:%S")
+        message = (
+            f"Вы достигли лимита сообщений в час. Время, когда вы сможете написать следующий вопрос BlackGPT - {next_message_time_str}. \n\n"
+            "Приобретите премиум подписку и получите более высокие лимиты."
         )
     else:
-        process_user_message(update, context)
+        message = "Произошла ошибка при определении времени следующего сообщения."
 
+    payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE)
+    update.message.reply_text(
+        message,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Купить премиум", url=payment_link)]
+        ])
+    )
+    
 def process_normal_message(update: Update, context: CallbackContext, user_id: int, user_message: str):
     # Проверка лимита сообщений перед продолжением
     within_limit, remaining_messages = db_manager.is_within_message_limit(user_id)

@@ -29,7 +29,7 @@ PREMIUM_SUBSCRIPTION_PRICE = 10
 
 # Константы для управления лимитами сообщений
 MAX_QUESTIONS_PER_HOUR_PREMIUM = 10
-MAX_QUESTIONS_PER_HOUR_REGULAR = 1
+MAX_QUESTIONS_PER_HOUR_REGULAR = 3
 FEEDBACK_COOLDOWN = 86400  # 1 час
 
 # Дополнительные настройки

@@ -55,6 +55,10 @@ def payment_webhook():
     data = request.form.to_dict()
     app.logger.info(f"Parsed data: {data}")
 
+    # Handle test notifications
+    if 'status_check' in data:
+        return 'YES', 200  # Отдельная обработка для запросов на проверку статуса
+    
     if not is_valid_signature(data, SECRET_KEY_2):
         app.logger.error("Invalid signature. Data: {data}")
         return jsonify({'error': 'Invalid signature'}), 400
@@ -67,16 +71,10 @@ def payment_webhook():
     if user_id is None:
         app.logger.error("Missing user_id in payment data")
         return jsonify({'error': 'Missing user_id'}), 400
+    
     if payment_status is None:
         app.logger.warning(f"Missing payment status for user_id {user_id}. Assuming payment success.")
         payment_status = "1"  # Предполагаем успешный платеж, если статус не указан
-
-    # Handle test notifications
-    if 'status_check' in request.form:
-        # if is_valid_ip(request.remote_addr):
-            return 'YES', 200
-        # else:
-            # return jsonify({'error': 'Invalid IP address'}), 403
 
     if data['MERCHANT_ID'] != MERCHANT_ID:
         app.logger.warning(f"Mismatched MERCHANT_ID. Expected: {MERCHANT_ID}, Received: {data['MERCHANT_ID']}")

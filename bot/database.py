@@ -6,7 +6,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
 
 from bot.utils import send_telegram_notification_to_admin
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from config import DATABASE_URL
 
@@ -163,28 +163,35 @@ class DatabaseManager:
                     return False, 0
 
                 now = datetime.now()
-                # Обновляем счетчик, если прошел час с момента последнего сообщения
-                if user.last_message_time and (now - user.last_message_time).total_seconds() >= 3600:
+                if user.last_message_time is None or (now - user.last_message_time).total_seconds() >= 3600:
                     user.message_count = 0
+                    user.last_message_time = now
                     session.commit()
 
-                remaining_messages = self.max_questions_premium - user.message_count if user.is_premium else self.max_questions_regular - user.message_count
-                return user.message_count < self.max_questions_premium if user.is_premium else user.message_count < self.max_questions_regular, remaining_messages
+                remaining_messages = (self.max_questions_premium if user.is_premium else self.max_questions_regular) - user.message_count
+                return remaining_messages > 0, remaining_messages
         except SQLAlchemyError as e:
             logging.error(f"Database error in is_within_message_limit: {e}")
             return False, 0
 
-    def update_message_count(self, user_id):
+    def update_message_count(self, user_id, count=1):
         try:
             with self.session() as session:
                 user = session.query(User).filter(User.id == user_id).first()
                 if user:
-                    user.message_count += 1
-                    user.last_message_time = datetime.now()
+                    now = datetime.now()
+                    # Если прошел час с момента последнего сообщения, сбрасываем счетчик
+                    if not user.last_message_time or (now - user.last_message_time).total_seconds() >= 3600:
+                        user.message_count = 0
+                        user.last_message_time = now
+
+                    user.message_count += count
                     session.commit()
+                    logging.info(f"User {user_id} message count updated to: {user.message_count}, Next message reset time: {user.last_message_time + timedelta(hours=1)}")
         except SQLAlchemyError as e:
             logging.error(f"Database error in update_message_count: {e}")
             session.rollback()
+
 
 # db_manager = DatabaseManager()
 # users = db_manager.get_all_users()

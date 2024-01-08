@@ -30,7 +30,7 @@ HACKERGPT_LINK = getenv('HACKERGPT_LINK')
 # Настройки приложения и сообщений
 WELCOME_MESSAGE = "Привет! Я BlackGPT бот. Задайте мне вопрос."
 ERROR_MESSAGE = "Извините, возникла проблема при обработке вашего запроса."
-PREMIUM_SUBSCRIPTION_PRICE = 10
+PREMIUM_SUBSCRIPTION_PRICE = 1000
 
 # Константы для управления лимитами сообщений
 MAX_QUESTIONS_PER_HOUR_PREMIUM = 10

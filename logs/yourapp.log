@@ -1,16 +1,4 @@
-2024-01-07 23:49:57,035 INFO: Headers: Host: 0934-94-125-242-55.ngrok-free.app
-Content-Length: 14
-Accept: */*
-Content-Type: application/x-www-form-urlencoded
-X-Forwarded-For: 168.119.157.136
-X-Forwarded-Host: 0934-94-125-242-55.ngrok-free.app
-X-Forwarded-Proto: https
-Accept-Encoding: gzip
-
- [in /root/my_telegram_bot_project/web/app.py:44]
-2024-01-07 23:49:57,035 INFO: Form data: ImmutableMultiDict([('status_check', '1')]) [in /root/my_telegram_bot_project/web/app.py:45]
-2024-01-07 23:49:57,035 INFO: Parsed data: {'status_check': '1'} [in /root/my_telegram_bot_project/web/app.py:49]
-2024-01-07 23:49:57,037 WARNING: An error occurred: 'MERCHANT_ID' [in /root/my_telegram_bot_project/web/app.py:85]
+2024-01-08 21:26:10,506 WARNING: An error occurred: can't compare offset-naive and offset-aware datetimes [in /root/my_telegram_bot_project/web/app.py:94]
 Traceback (most recent call last):
   File "/root/my_telegram_bot_project/venv/lib/python3.11/site-packages/flask/app.py", line 1950, in full_dispatch_request
     rv = self.dispatch_request()
@@ -18,18 +6,13 @@ Traceback (most recent call last):
   File "/root/my_telegram_bot_project/venv/lib/python3.11/site-packages/flask/app.py", line 1936, in dispatch_request
     return self.view_functions[rule.endpoint](**req.view_args)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/my_telegram_bot_project/web/app.py", line 52, in payment_webhook
-    if not is_valid_signature(data, SECRET_KEY_2):
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/my_telegram_bot_project/web/app.py", line 33, in is_valid_signature
-    string_to_sign = f"{data['MERCHANT_ID']}:{data['AMOUNT']}:{secret_key}:{data['MERCHANT_ORDER_ID']}"
-                        ~~~~^^^^^^^^^^^^^^^
-KeyError: 'MERCHANT_ID'
-2024-01-07 23:52:56,493 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-07 23:53:06,876 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-07 23:53:07,123 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-07 23:53:15,269 INFO: Headers: Host: 0934-94-125-242-55.ngrok-free.app
-Content-Length: 14
+  File "/root/my_telegram_bot_project/web/app.py", line 70, in payment_webhook
+    if not payment_link or payment_link.expiration_time < datetime.now(moscow_tz):
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: can't compare offset-naive and offset-aware datetimes
+2024-01-08 21:28:35,423 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
+2024-01-08 21:29:01,686 INFO: Headers: Host: 0934-94-125-242-55.ngrok-free.app
+Content-Length: 186
 Accept: */*
 Content-Type: application/x-www-form-urlencoded
 X-Forwarded-For: 168.119.157.136
@@ -38,78 +21,6 @@ X-Forwarded-Proto: https
 Accept-Encoding: gzip
 
  [in /root/my_telegram_bot_project/web/app.py:44]
-2024-01-07 23:53:15,270 INFO: Form data: ImmutableMultiDict([('status_check', '1')]) [in /root/my_telegram_bot_project/web/app.py:45]
-2024-01-07 23:53:15,270 INFO: Parsed data: {'status_check': '1'} [in /root/my_telegram_bot_project/web/app.py:49]
-2024-01-07 23:53:15,270 INFO: Status check request received [in /root/my_telegram_bot_project/web/app.py:53]
-2024-01-07 23:53:42,616 INFO: Headers: Host: 0934-94-125-242-55.ngrok-free.app
-Content-Length: 182
-Accept: */*
-Content-Type: application/x-www-form-urlencoded
-X-Forwarded-For: 168.119.157.136
-X-Forwarded-Host: 0934-94-125-242-55.ngrok-free.app
-X-Forwarded-Proto: https
-Accept-Encoding: gzip
-
- [in /root/my_telegram_bot_project/web/app.py:44]
-2024-01-07 23:53:42,617 INFO: Form data: ImmutableMultiDict([('MERCHANT_ID', '11619'), ('AMOUNT', '10'), ('intid', '0'), ('MERCHANT_ORDER_ID', '1704653603'), ('P_EMAIL', 'demiz99@mail.ru'), ('P_PHONE', ''), ('CUR_ID', '1'), ('commission', '0.7'), ('SIGN', '0be68b97741a84eee6f4e195096e7924'), ('us_user_id', '188095989')]) [in /root/my_telegram_bot_project/web/app.py:45]
-2024-01-07 23:53:42,617 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704653603', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': '0be68b97741a84eee6f4e195096e7924', 'us_user_id': '188095989'} [in /root/my_telegram_bot_project/web/app.py:49]
-2024-01-07 23:53:42,617 WARNING: Payment failed or unknown status for user 188095989 [in /root/my_telegram_bot_project/web/app.py:63]
-2024-01-07 23:56:02,848 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-07 23:56:03,114 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-07 23:56:20,165 INFO: Headers: Host: 0934-94-125-242-55.ngrok-free.app
-Content-Length: 182
-Accept: */*
-Content-Type: application/x-www-form-urlencoded
-X-Forwarded-For: 168.119.157.136
-X-Forwarded-Host: 0934-94-125-242-55.ngrok-free.app
-X-Forwarded-Proto: https
-Accept-Encoding: gzip
-
- [in /root/my_telegram_bot_project/web/app.py:44]
-2024-01-07 23:56:20,166 INFO: Form data: ImmutableMultiDict([('MERCHANT_ID', '11619'), ('AMOUNT', '10'), ('intid', '0'), ('MERCHANT_ORDER_ID', '1704653770'), ('P_EMAIL', 'demiz99@mail.ru'), ('P_PHONE', ''), ('CUR_ID', '1'), ('commission', '0.7'), ('SIGN', '78a19b36a4c51ef10fd0b1d7c8d056b8'), ('us_user_id', '188095989')]) [in /root/my_telegram_bot_project/web/app.py:45]
-2024-01-07 23:56:20,166 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704653770', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': '78a19b36a4c51ef10fd0b1d7c8d056b8', 'us_user_id': '188095989'} [in /root/my_telegram_bot_project/web/app.py:49]
-2024-01-08 00:00:40,206 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 00:00:40,499 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 00:00:56,942 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 00:00:57,181 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 00:01:32,314 INFO: Headers: Host: 0934-94-125-242-55.ngrok-free.app
-Content-Length: 182
-Accept: */*
-Content-Type: application/x-www-form-urlencoded
-X-Forwarded-For: 168.119.157.136
-X-Forwarded-Host: 0934-94-125-242-55.ngrok-free.app
-X-Forwarded-Proto: https
-Accept-Encoding: gzip
-
- [in /root/my_telegram_bot_project/web/app.py:44]
-2024-01-08 00:01:32,315 INFO: Form data: ImmutableMultiDict([('MERCHANT_ID', '11619'), ('AMOUNT', '10'), ('intid', '0'), ('MERCHANT_ORDER_ID', '1704654061'), ('P_EMAIL', 'demiz99@mail.ru'), ('P_PHONE', ''), ('CUR_ID', '1'), ('commission', '0.7'), ('SIGN', 'e0092cf16dacb958d6a81298fae3f5b6'), ('us_user_id', '188095989')]) [in /root/my_telegram_bot_project/web/app.py:45]
-2024-01-08 00:01:32,315 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704654061', 'P_EMAIL': 'demiz99@mail.ru', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': 'e0092cf16dacb958d6a81298fae3f5b6', 'us_user_id': '188095989'} [in /root/my_telegram_bot_project/web/app.py:49]
-2024-01-08 00:05:39,751 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 00:05:43,173 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 01:37:34,199 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 01:37:34,568 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 01:38:52,334 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 01:43:31,081 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 01:43:31,408 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 01:52:37,250 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 01:54:19,260 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 07:20:20,923 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 07:20:21,242 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 07:29:38,192 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 07:29:38,452 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 07:39:08,465 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:15:58,389 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:16:01,092 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:19:06,712 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:25:41,028 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:25:50,905 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:27:03,824 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:33:50,691 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:44:36,139 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:44:36,590 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:47:04,399 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:47:04,802 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:58:19,664 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 10:58:20,119 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 14:01:51,903 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
-2024-01-08 14:01:52,224 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]
+2024-01-08 21:29:01,688 INFO: Form data: ImmutableMultiDict([('MERCHANT_ID', '11619'), ('AMOUNT', '10'), ('intid', '0'), ('MERCHANT_ORDER_ID', '1704734928'), ('P_EMAIL', 'swp040516@gmail.com'), ('P_PHONE', ''), ('CUR_ID', '1'), ('commission', '0.7'), ('SIGN', 'd0e1239aa08e4644af10558b860d0201'), ('us_user_id', '188095989')]) [in /root/my_telegram_bot_project/web/app.py:45]
+2024-01-08 21:29:01,688 INFO: Parsed data: {'MERCHANT_ID': '11619', 'AMOUNT': '10', 'intid': '0', 'MERCHANT_ORDER_ID': '1704734928', 'P_EMAIL': 'swp040516@gmail.com', 'P_PHONE': '', 'CUR_ID': '1', 'commission': '0.7', 'SIGN': 'd0e1239aa08e4644af10558b860d0201', 'us_user_id': '188095989'} [in /root/my_telegram_bot_project/web/app.py:49]
+2024-01-08 21:31:16,609 INFO: YourApp startup [in /root/my_telegram_bot_project/web/app.py:28]

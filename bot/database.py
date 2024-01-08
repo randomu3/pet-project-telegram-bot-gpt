@@ -244,7 +244,11 @@ class DatabaseManager:
             with self.session() as session:
                 user = session.query(User).filter(User.id == user_id).first()
                 if user and user.is_premium:
-                    # Исправлено: использование premium_expiration вместо premium_expiration_date
+                    # Локализация времени из базы данных
+                    if user.premium_expiration and user.premium_expiration.tzinfo is None:
+                        user.premium_expiration = moscow_tz.localize(user.premium_expiration)
+                    
+                    # Использование локализованного времени для сравнения
                     if user.premium_expiration and user.premium_expiration > datetime.now(moscow_tz):
                         return True
                 return False

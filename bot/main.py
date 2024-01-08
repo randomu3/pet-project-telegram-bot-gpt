@@ -128,6 +128,14 @@ def handle_new_chat_button(update: Update, context: CallbackContext) -> None:
 
     # Логирование нажатия кнопки нового чата
     logging.info(f"User {user_id} clicked 'New Chat' button")
+    
+    # Очистка истории сообщений
+    message_history = context.user_data.get('message_history', [])
+    for message in message_history:
+        db_manager.add_message_history(user_id, message['content'])
+
+    # Очищаем историю сообщений
+    context.user_data['message_history'] = []
 
     if db_manager.check_premium_status(user_id):
         context.user_data[f'message_count_{user_id}'] = 0
@@ -255,7 +263,7 @@ def inform_limit_reached(update, user_id):
             "Приобретите премиум подписку и получите более высокие лимиты."
         )
     else:
-        message = "Произошла ошибка при определении времени следующего сообщения."
+        message = "Произошла ошибка при определении времени следующего сообщения. Напишите команду /start"
 
     payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, db_manager)  # Исправлен вызов функции
     update.message.reply_text(

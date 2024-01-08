@@ -46,12 +46,29 @@ class PaymentLink(Base):
 
 Base.metadata.create_all(engine)
 
+class MessageHistory(Base):
+    __tablename__ = 'message_histories'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    message = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
 class DatabaseManager:
     def __init__(self, max_questions_premium, max_questions_regular):
         self.session = scoped_session(Session)
         self.max_questions_premium = max_questions_premium
         self.max_questions_regular = max_questions_regular
     
+    def add_message_history(self, user_id, message):
+        try:
+            with self.session() as session:
+                new_message_history = MessageHistory(user_id=user_id, message=message)
+                session.add(new_message_history)
+                session.commit()
+        except SQLAlchemyError as e:
+            logging.error(f"Database error in add_message_history: {e}")
+            session.rollback()
+
     def get_user_by_id(self, user_id):
         try:
             with self.session() as session:
@@ -246,7 +263,6 @@ class DatabaseManager:
         except SQLAlchemyError as e:
             logging.error(f"Database error in update_message_count: {e}")
             session.rollback()
-
 
 # db_manager = DatabaseManager()
 # users = db_manager.get_all_users()

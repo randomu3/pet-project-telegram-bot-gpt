@@ -16,7 +16,7 @@ from bot.utils import generate_payment_link
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
 from datetime import datetime, timedelta
-from config import TELEGRAM_BOT_TOKEN, FEEDBACK_COOLDOWN, PREMIUM_SUBSCRIPTION_PRICE,ADMIN_TELEGRAM_ID, WELCOME_MESSAGE, ERROR_MESSAGE, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR, MERCHANT_ID, SECRET_KEY_1
+from config import moscow_tz, TELEGRAM_BOT_TOKEN, FEEDBACK_COOLDOWN, PREMIUM_SUBSCRIPTION_PRICE,ADMIN_TELEGRAM_ID, WELCOME_MESSAGE, ERROR_MESSAGE, MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR, MERCHANT_ID, SECRET_KEY_1
 from bot.telegram_utils import send_feedback_to_admin
 
 # Set up logging
@@ -32,7 +32,7 @@ mq = MessageQueue('telegram_broadcast')
 def update_premium_statuses():
     users = db_manager.get_all_users()
     for user in users:
-        if user.premium_expiration and user.premium_expiration < datetime.now():
+        if user.premium_expiration and user.premium_expiration < datetime.now(moscow_tz):
             db_manager.update_premium_status(user.id, False, None)
 
 def handle_payment(update: Update, context: CallbackContext) -> None:
@@ -190,30 +190,31 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     user_message = update.message.text
     logging.info(f"Received message from user {user_id}: {user_message}")
 
-    # Проверяем, находится ли администратор в режиме рассылки
-    if context.user_data.get('is_broadcasting', False) and str(user_id) == ADMIN_TELEGRAM_ID:
-        broadcast_to_all_users(user_message, db_manager)
-        context.user_data['is_broadcasting'] = False
-        update.message.reply_text("Сообщение отправлено всем пользователям.")
-        return
-
     # Получаем данные пользователя
     user = db_manager.get_user_by_id(user_id)
     if user:
-        now = datetime.now()
+        now = datetime.now(moscow_tz)  # Использование московского времени
 
-        # Если время последнего сообщения не установлено, устанавливаем текущее время
-        if user.last_message_time is None:
-            user.last_message_time = now
+        # Локализация времени из базы данных
+        if user.last_message_time and user.last_message_time.tzinfo is None:
+            user.last_message_time = moscow_tz.localize(user.last_message_time)
 
-        # Сброс счетчика, если прошел час с момента последнего сообщения
-        if (now - user.last_message_time).total_seconds() >= 3600:
+        # Проверка и обновление счетчика сообщений
+        if user.last_message_time is None or (now - user.last_message_time).total_seconds() >= 3600:
             user.message_count = 0
             user.last_message_time = now
-
-        # Обновляем счетчик сообщений
         user.message_count += 1
         db_manager.session.commit()
+
+        # # Проверка лимита сообщений
+        # limit = MAX_QUESTIONS_PER_HOUR_PREMIUM if user.is_premium else MAX_QUESTIONS_PER_HOUR_REGULAR
+        # if user.message_count > limit:
+        #     next_message_time = user.last_message_time + timedelta(seconds=3600)
+        #     next_message_time_str = next_message_time.strftime("%Y-%m-%d %H:%M:%S")
+        #     update.message.reply_text(
+        #         f"Вы достигли лимита сообщений. Следующее сообщение возможно в {next_message_time_str} (Московское время)."
+        #     )
+        #     # return  # Прекращаем обработку текущего сообщения
 
         # Логирование текущего состояния счетчика
         logging.info(f"User {user_id} message count updated to: {user.message_count}")
@@ -228,7 +229,7 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 
     # Проверяем, ожидает ли бот предложения об улучшении
     if context.user_data.get('awaiting_feedback', False):
-        now = datetime.now()
+        now = datetime.now(moscow_tz)
         if user.last_feedback_time is None or (now - user.last_feedback_time).total_seconds() > FEEDBACK_COOLDOWN:
             process_feedback(user_id, user_message, db_manager)  # Исправленный вызов
             user.last_feedback_time = now
@@ -262,16 +263,16 @@ def handle_message(update: Update, context: CallbackContext) -> None:
 def inform_limit_reached(update, user_id):
     user = db_manager.get_user_by_id(user_id)
     if user and user.last_message_time:
-        next_message_time = user.last_message_time + timedelta(seconds=3600)
-        next_message_time_str = next_message_time.strftime("%Y-%m-%d %H:%M:%S")
+        next_message_time = db_manager.get_next_message_time(user_id)
+        next_message_time_str = next_message_time.strftime("%Y-%m-%d %H:%M:%S") if next_message_time else "скоро"
         message = (
-            f"Вы достигли лимита сообщений в час. Время, когда вы сможете написать следующий вопрос BlackGPT - {next_message_time_str}. \n\n"
+            f"Вы достигли лимита сообщений в час. Следующее сообщение возможно в {next_message_time_str} (Московское время). \n\n"
             "Приобретите премиум подписку и получите более высокие лимиты."
         )
     else:
         message = "Произошла ошибка при определении времени следующего сообщения. Напишите команду /start"
 
-    payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, db_manager)  # Исправлен вызов функции
+    payment_link = generate_payment_link(user_id, PREMIUM_SUBSCRIPTION_PRICE, db_manager)
     update.message.reply_text(
         message,
         reply_markup=InlineKeyboardMarkup([
@@ -377,7 +378,7 @@ def handle_feedback_button(update: Update, context: CallbackContext) -> None:
     user = db_manager.get_user_by_id(user_id)
 
     if user and db_manager.check_premium_status(user_id):
-        now = datetime.now()
+        now = datetime.now(moscow_tz)
         if user.last_feedback_time is None or (now - user.last_feedback_time).total_seconds() > FEEDBACK_COOLDOWN:
             context.user_data['awaiting_feedback'] = True
             update.message.reply_text("Пожалуйста, напишите ваше предложение об улучшении бота.")
@@ -451,7 +452,7 @@ def grant_premium_command(update: Update, context: CallbackContext) -> None:
 
     try:
         target_user_id = int(context.args[0])
-        new_expiration_date = datetime.now() + timedelta(days=30)
+        new_expiration_date = datetime.now(moscow_tz) + timedelta(days=30)
         db_manager.update_premium_status(target_user_id, True, new_expiration_date)
         update.message.reply_text(f"Премиум доступ выдан пользователю с ID {target_user_id} на месяц.")
         send_telegram_notification(target_user_id, "Вам выдан премиум доступ на месяц!", db_manager)

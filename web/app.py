@@ -85,7 +85,7 @@ def payment_webhook():
 
     # Обновление статуса пользователя
     user_id = data.get('us_user_id')
-    new_expiration_date = datetime.now() + timedelta(days=30)
+    new_expiration_date = datetime.now(moscow_tz) + timedelta(days=30)
     db_manager.update_premium_status(user_id, True, new_expiration_date)
     db_manager.reset_message_count(user_id)  # Сброс счетчика сообщений
     send_telegram_notification(user_id, "Ваша подписка активирована! Наслаждайтесь премиум-возможностями.", db_manager)

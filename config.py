@@ -2,13 +2,18 @@
 from dotenv import load_dotenv
 from os import getenv
 import os
+import pytz
+from datetime import datetime
+
+moscow_tz = pytz.timezone('Europe/Moscow')
+now_aware = datetime.now(moscow_tz)
 
 # Load environment variables explicitly
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
 # Добавьте ваш Telegram ID
-ADMIN_TELEGRAM_ID = '188095989'  # Замените на ваш реальный Telegram ID
+ADMIN_TELEGRAM_ID = getenv('ADMIN_TELEGRAM_ID')  # Замените на ваш реальный Telegram ID
 
 # Настройки базы данных
 DATABASE_URL = "sqlite:///bot_database.db"

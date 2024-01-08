@@ -1,6 +1,7 @@
 
 # bot/database.py
 
+from logging.handlers import RotatingFileHandler
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 from sqlalchemy.exc import SQLAlchemyError
@@ -8,11 +9,35 @@ from sqlalchemy.exc import SQLAlchemyError
 from bot.telegram_utils import send_telegram_notification_to_admin, send_expiration_notification
 from datetime import datetime, timedelta
 import logging
-from config import DATABASE_URL
+import pytz
+from config import DATABASE_URL, moscow_tz
+from logging import Formatter
 
+moscow_tz = pytz.timezone('Europe/Moscow')
 engine = create_engine(DATABASE_URL, echo=False)
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
+
+# MoscowTimeFormatter definition
+class MoscowTimeFormatter(Formatter):
+    moscow_tz = pytz.timezone('Europe/Moscow')
+
+    def formatTime(self, record, datefmt=None):
+        ct = datetime.fromtimestamp(record.created, self.moscow_tz)
+        if datefmt:
+            s = ct.strftime(datefmt)
+        else:
+            try:
+                s = ct.isoformat(timespec='milliseconds')
+            except TypeError:
+                s = ct.isoformat()
+        return s
+
+# Modify the logging configuration to use MoscowTimeFormatter
+file_handler = RotatingFileHandler('logs/yourapp.log', maxBytes=10240, backupCount=10)
+moscow_time_formatter = MoscowTimeFormatter('%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]')
+file_handler.setFormatter(moscow_time_formatter)
+file_handler.setLevel(logging.INFO)
 
 class User(Base):
     __tablename__ = 'users'
@@ -23,7 +48,7 @@ class User(Base):
     last_name = Column(String)
     is_premium = Column(Boolean, default=False)
     premium_expiration = Column(DateTime)  # Исправлено имя поля
-    last_message_time = Column(DateTime, nullable=True)
+    last_message_time = Column(DateTime(timezone=True), nullable=True)
     message_count = Column(Integer, default=0, nullable=True)
     next_message_available = Column(DateTime, nullable=True)
     last_feedback_time = Column(DateTime, nullable=True)  # Добавьте эту строку
@@ -83,7 +108,7 @@ class DatabaseManager:
                 # Find all users with expired subscriptions
                 expired_users = session.query(User).filter(
                     User.is_premium == True,
-                    User.premium_expiration < datetime.now()
+                    User.premium_expiration < datetime.now(moscow_tz)
                 ).all()
 
                 # Update their premium status
@@ -157,7 +182,7 @@ class DatabaseManager:
     def expire_payment_links(self):
         try:
             with self.session() as session:
-                now = datetime.now()
+                now = datetime.now(moscow_tz)
                 expired_links = session.query(PaymentLink).filter(
                     PaymentLink.expiration_time < now,
                     PaymentLink.is_paid == False
@@ -177,7 +202,7 @@ class DatabaseManager:
         with self.session() as session:
             link = session.query(PaymentLink).filter(
                 PaymentLink.user_id == user_id,
-                PaymentLink.expiration_time > datetime.now(),
+                PaymentLink.expiration_time > datetime.now(moscow_tz),
                 PaymentLink.is_paid == False
             ).first()
             return link is not None
@@ -220,7 +245,7 @@ class DatabaseManager:
                 user = session.query(User).filter(User.id == user_id).first()
                 if user and user.is_premium:
                     # Исправлено: использование premium_expiration вместо premium_expiration_date
-                    if user.premium_expiration and user.premium_expiration > datetime.now():
+                    if user.premium_expiration and user.premium_expiration > datetime.now(moscow_tz):
                         return True
                 return False
         except SQLAlchemyError as e:
@@ -234,7 +259,11 @@ class DatabaseManager:
                 if not user:
                     return False, 0
 
-                now = datetime.now()
+                now = datetime.now(moscow_tz)
+                # Локализация времени из базы данных
+                if user.last_message_time and user.last_message_time.tzinfo is None:
+                    user.last_message_time = moscow_tz.localize(user.last_message_time)
+
                 if user.last_message_time is None or (now - user.last_message_time).total_seconds() >= 3600:
                     user.message_count = 0
                     user.last_message_time = now
@@ -246,13 +275,29 @@ class DatabaseManager:
             logging.error(f"Database error in is_within_message_limit: {e}")
             return False, 0
 
+    def add_message_history(self, user_id, message):
+        try:
+            with self.session() as session:
+                new_message_history = MessageHistory(user_id=user_id, message=message)
+                session.add(new_message_history)
+                session.commit()
+                logging.info(f"Message history added for user {user_id}")
+        except SQLAlchemyError as e:
+            logging.error(f"Database error in add_message_history: {e}")
+            session.rollback()
+
     def update_message_count(self, user_id, count=1):
         try:
             with self.session() as session:
                 user = session.query(User).filter(User.id == user_id).first()
                 if user:
-                    now = datetime.now()
-                    # Если прошел час с момента последнего сообщения, сбрасываем счетчик
+                    now = datetime.now(moscow_tz)
+
+                    # Локализация времени из базы данных
+                    if user.last_message_time and user.last_message_time.tzinfo is None:
+                        user.last_message_time = moscow_tz.localize(user.last_message_time)
+
+                    # Проверка и обновление счетчика сообщений
                     if not user.last_message_time or (now - user.last_message_time).total_seconds() >= 3600:
                         user.message_count = 0
                         user.last_message_time = now

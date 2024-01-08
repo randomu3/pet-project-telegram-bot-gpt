@@ -21,6 +21,9 @@ def send_telegram_notification(user_id, message, db_manager):
     }
     try:
         response = requests.post(telegram_api_url, data=data)
-        response.raise_for_status()
+        if response.status_code == 200:
+            logging.info(f"Message successfully sent to user {user_id}")
+        else:
+            logging.error(f"Failed to send message to user {user_id}, status code: {response.status_code}, response: {response.text}")
     except requests.exceptions.RequestException as e:
         logging.error(f"Error sending Telegram notification: {e}")

@@ -1,6 +1,9 @@
 
 # bot/main.py
 
+import threading
+from bot.message_queue import MessageQueue
+from bot.message_worker import MessageConsumer
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 from bot.database import DatabaseManager
@@ -22,6 +25,9 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # Create instances for database and API interactions
 db_manager = DatabaseManager(MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR)
 hackergpt_api = HackerGPTAPI()
+
+# Глобальная инициализация MessageQueue
+mq = MessageQueue('telegram_broadcast')
 
 def update_premium_statuses():
     users = db_manager.get_all_users()
@@ -431,11 +437,11 @@ def broadcast_command(update: Update, context: CallbackContext) -> None:
 
 def broadcast_to_all_users(message, db_manager):
     # Добавляем префикс к сообщению
-    prefixed_message = f"Сообщение от администратора: {message}"
-
+    # prefixed_message = f"Сообщение от администратора: {message}"
+    # send_telegram_notification(user.id, prefixed_message, db_manager)
     users = db_manager.get_all_users()
     for user in users:
-        send_telegram_notification(user.id, prefixed_message, db_manager)
+        mq.send_message({'user_id': user.id, 'message': message})
 
 def grant_premium_command(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
@@ -461,6 +467,9 @@ def main() -> None:
     updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True, request_kwargs=request_kwargs)
     dispatcher = updater.dispatcher
 
+     # Создание экземпляра DatabaseManager
+    db_manager = DatabaseManager(MAX_QUESTIONS_PER_HOUR_PREMIUM, MAX_QUESTIONS_PER_HOUR_REGULAR)
+
     # Register command and message handlers
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("status", status))
@@ -478,6 +487,11 @@ def main() -> None:
     scheduler.add_job(check_expired_payment_links, 'interval', hours=24)
     scheduler.add_job(db_manager.expire_payment_links, 'interval', hours=24)
     scheduler.start()
+
+    # Создаем экземпляр MessageConsumer с указанным значением prefetch_count
+    consumer = MessageConsumer('telegram_broadcast', db_manager, prefetch_count=4)
+    consumer_thread = threading.Thread(target=consumer.start_consuming)
+    consumer_thread.start()
 
     # Start the bot
     updater.start_polling()
